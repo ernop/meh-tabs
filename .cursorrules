@@ -1,0 +1,27 @@
+# Firefox New Tab Extension
+# Purpose: Replace default new tab page with custom implementation
+
+## Core Features
+- Custom new tab page replacement
+- Local extension (self-hosted/personal use)
+- Firefox browser compatibility
+- Quick search integration with Google
+- Category-based link organization
+- Real-time clock and date display
+
+
+## Project Structure
+/
+├── newtab.html      # Main page template
+├── newtab.js        # Core functionality
+├── links.json       # Link categories and data
+├── manifest.json    # Extension configuration
+└── bootstrap.min.css # Styling framework
+
+## Development Rules
+- Keep dependencies minimal (Bootstrap + FontAwesome only)
+- Focus on performance for quick tab loading
+- Store user data locally when needed
+- Maintain clean category structure in links.json
+- Follow Firefox extension security policies
+- Use semantic HTML and accessible design

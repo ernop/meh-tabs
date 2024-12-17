@@ -1,0 +1,16 @@
+{
+    "categories": [
+        {
+            "name": "Local",
+            "order": 3,
+            "emoji": "fa-solid fa-location-dot",
+            "links": [
+                {
+                    "name": "Foster City Weather",
+                    "href": "https://weather.gov/forecast/Foster+City,CA",
+                    "emoji": "fa-solid fa-cloud"
+                }
+            ]
+        }
+    ]
+}

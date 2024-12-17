@@ -1,0 +1,40 @@
+.time-date {
+    float: right;
+    opacity: 0.8;
+    font-size: 0.9em;
+}
+
+.todo-list {
+    min-height: 50px;
+}
+
+.todo-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    margin: 4px 0;
+    background: #f8f9fa;
+    border-radius: 4px;
+    cursor: move;
+}
+
+.todo-item.completed {
+    opacity: 0.7;
+    text-decoration: line-through;
+}
+
+.todo-text {
+    flex-grow: 1;
+    margin: 0 10px;
+}
+
+.todo-date {
+    font-size: 0.8em;
+    color: #6c757d;
+    margin-right: 10px;
+}
+
+.todo-actions {
+    display: flex;
+    gap: 5px;
+}
