@@ -6,7 +6,7 @@ class TodoList {
         this.attachEventListeners();
         this.initializeTabs();
         this.render();
-        
+
         // Debounce storage events
         this.handleStorageChange = this.debounce((e) => {
             if (e.key === 'todos') {
@@ -14,7 +14,7 @@ class TodoList {
                 this.render();
             }
         }, 50);
-        
+
         window.addEventListener('storage', this.handleStorageChange);
     }
 
@@ -33,19 +33,18 @@ class TodoList {
 
     mergeTodos(otherTodos) {
         const todoMap = new Map(this.todos.map(todo => [todo.id, todo]));
-        
+
         otherTodos.forEach(otherTodo => {
             const existingTodo = todoMap.get(otherTodo.id);
-            
+
             if (!existingTodo) {
                 todoMap.set(otherTodo.id, otherTodo);
             } else {
-                // Use both timestamp and sequence number for ordering
-                const isNewer = 
+                const isNewer =
                     otherTodo.lastModified > existingTodo.lastModified ||
-                    (otherTodo.lastModified === existingTodo.lastModified && 
-                     otherTodo.sequence > existingTodo.sequence);
-                
+                    (otherTodo.lastModified === existingTodo.lastModified &&
+                        otherTodo.sequence > existingTodo.sequence);
+
                 if (isNewer) {
                     todoMap.set(otherTodo.id, otherTodo);
                 }
@@ -56,17 +55,18 @@ class TodoList {
             .sort((a, b) => a.order - b.order);
     }
 
-    // Cache DOM elements
     initializeElements() {
         this.elements = {
             addButton: document.getElementById('add-todo'),
             newTodoInput: document.getElementById('new-todo'),
             activeList: document.getElementById('active-todos'),
-            archiveList: document.getElementById('archive-todos')
+            archiveList: document.getElementById('archive-todos'),
+            exportButton: document.getElementById('export-todos'),
+            importButton: document.getElementById('import-todos'),
+            importFileInput: document.getElementById('import-file-input')
         };
     }
 
-    // Central place for all event listeners
     attachEventListeners() {
         // Add todo events
         this.elements.addButton.addEventListener('click', () => this.addTodo());
@@ -79,7 +79,7 @@ class TodoList {
             this.elements[listName].addEventListener('click', (e) => {
                 const todoItem = e.target.closest('.todo-item');
                 if (!todoItem) return;
-                const todoId = parseInt(todoItem.dataset.id);
+                const todoId = todoItem.dataset.id; // Use directly, don't parse
 
                 if (e.target.matches('.complete-btn')) {
                     this.toggleComplete(todoId);
@@ -91,7 +91,13 @@ class TodoList {
             });
         });
 
+        // Sortable initialization
         this.initializeSortable();
+
+        // Export/Import event listeners
+        this.elements.exportButton.addEventListener('click', () => this.exportTodos());
+        this.elements.importButton.addEventListener('click', () => this.elements.importFileInput.click());
+        this.elements.importFileInput.addEventListener('change', (e) => this.handleImportFile(e));
     }
 
     initializeSortable() {
@@ -103,8 +109,10 @@ class TodoList {
                 const archiveOrder = Array.from(this.elements.archiveList.children).map(el => el.dataset.id);
 
                 [...activeOrder, ...archiveOrder].forEach((id, index) => {
-                    const todo = this.todos.find(t => t.id === parseInt(id));
-                    if (todo) todo.order = index;
+                    const todo = this.todos.find(t => t.id === id);
+                    if (todo) {
+                        todo.order = index;
+                    }
                 });
 
                 this.save();
@@ -121,6 +129,9 @@ class TodoList {
         const text = this.elements.newTodoInput.value.trim();
         if (!text) return;
 
+        const seq = parseInt(localStorage.getItem('todoSequence') || '0');
+        localStorage.setItem('todoSequence', (seq + 1).toString());
+
         const todo = {
             id: `${this.tabId}_${Date.now()}`,
             text,
@@ -129,7 +140,8 @@ class TodoList {
             createdAt: new Date().toISOString(),
             archivedAt: null,
             order: this.todos.length,
-            lastModified: Date.now()
+            lastModified: Date.now(),
+            sequence: seq + 1
         };
 
         this.todos.push(todo);
@@ -195,22 +207,21 @@ class TodoList {
 
     save() {
         try {
-            // Add sequence number for additional ordering safety
             const seq = parseInt(localStorage.getItem('todoSequence') || '0');
-            localStorage.setItem('todoSequence', (seq + 1).toString());
-            
+
+            // Ensure sequence and lastModified are set
             this.todos.forEach(todo => {
+                if (typeof todo.sequence === 'undefined') {
+                    todo.sequence = seq;
+                }
                 if (!todo.lastModified) {
                     todo.lastModified = Date.now();
                 }
-                if (!todo.sequence) {
-                    todo.sequence = seq;
-                }
             });
-            
+
             localStorage.setItem('todos', JSON.stringify(this.todos));
         } catch (e) {
-            throw e;
+            console.error('Error saving todos:', e);
         }
     }
 
@@ -271,6 +282,64 @@ class TodoList {
             clearTimeout(timeout);
             timeout = setTimeout(later, wait);
         };
+    }
+
+    // -------------------------
+    // Export/Import Methods
+    // -------------------------
+
+    exportTodos() {
+        const data = {
+            todos: this.todos,
+            todoSequence: localStorage.getItem('todoSequence') || '0'
+        };
+        const jsonStr = JSON.stringify(data, null, 2);
+
+        // Create a downloadable blob
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        // Create a temporary link and trigger download
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `todos_backup_${new Date().toISOString()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    handleImportFile(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const importedData = JSON.parse(event.target.result);
+
+                if (!importedData.todos || !Array.isArray(importedData.todos)) {
+                    alert('Invalid backup file: missing todos array.');
+                    return;
+                }
+
+                // Replace local storage data
+                localStorage.setItem('todos', JSON.stringify(importedData.todos));
+                if (importedData.todoSequence) {
+                    localStorage.setItem('todoSequence', importedData.todoSequence.toString());
+                }
+
+                // Reload the todos from storage
+                this.todos = this.loadTodos();
+                this.render();
+                alert('Todos successfully imported!');
+            } catch (error) {
+                console.error('Error importing todos:', error);
+                alert('Error reading or parsing the backup file.');
+            }
+        };
+
+        reader.readAsText(file);
     }
 }
 
