@@ -5,13 +5,11 @@ function updateTime() {
   const timeElement = document.getElementById('time');
   const now = new Date();
 
-  // Format time
   const hours = now.getHours();
   const minutes = now.getMinutes();
   const ampm = hours >= 12 ? 'pm' : 'am';
   const time = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}${ampm}`;
 
-  // Format date
   const day = now.toLocaleDateString('en-US', { weekday: 'short' });
   const month = now.toLocaleDateString('en-US', { month: 'short' });
   const date = now.getDate();
@@ -62,13 +60,8 @@ async function loadAndRenderLinks() {
     const response = await fetch(linksUrl);
     const data = await response.json();
 
-    // Sort categories by order
     const sortedCategories = data.categories.sort((a, b) => a.order - b.order);
-
-    // Generate HTML for all categories
     const categoriesHtml = sortedCategories.map(createCategorySection).join('');
-
-    // Insert into page
     document.getElementById('categories-container').innerHTML = categoriesHtml;
   } catch (error) {
     console.error('Error loading links:', error);

@@ -7,7 +7,7 @@ class TodoList {
         this.render();
     }
 
-    // Cache DOM elements for better performance and organization
+    // Cache DOM elements
     initializeElements() {
         this.elements = {
             addButton: document.getElementById('add-todo'),
@@ -30,10 +30,8 @@ class TodoList {
             this.elements[listName].addEventListener('click', (e) => {
                 const todoItem = e.target.closest('.todo-item');
                 if (!todoItem) return;
-
                 const todoId = parseInt(todoItem.dataset.id);
 
-                // Handle different button clicks
                 if (e.target.matches('.complete-btn')) {
                     this.toggleComplete(todoId);
                 } else if (e.target.matches('.archive-btn')) {
@@ -44,7 +42,6 @@ class TodoList {
             });
         });
 
-        // Make lists sortable
         this.initializeSortable();
     }
 
@@ -62,6 +59,7 @@ class TodoList {
                 });
 
                 this.save();
+                this.render();
             }
         };
 
@@ -87,6 +85,7 @@ class TodoList {
         this.todos.push(todo);
         this.elements.newTodoInput.value = '';
         this.save();
+        this.render();
     }
 
     toggleComplete(id) {
@@ -94,6 +93,7 @@ class TodoList {
         if (todo) {
             todo.completed = !todo.completed;
             this.save();
+            this.render();
         }
     }
 
@@ -113,15 +113,17 @@ class TodoList {
 
         const element = document.querySelector(`[data-id="${id}"] .todo-text`);
         const currentText = todo.text;
-        element.innerHTML = `
-        <input type="text" class="form-control edit-todo" value="${currentText}">
-      `;
+        element.innerHTML = `<input type="text" class="form-control edit-todo" value="${currentText}">`;
 
         const input = element.querySelector('input');
         input.focus();
 
-        input.addEventListener('blur keypress', (e) => {
-            if (e.type === 'blur' || e.which === 13) {
+        input.addEventListener('blur', () => {
+            this.editTodo(id, input.value);
+        });
+
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
                 this.editTodo(id, input.value);
             }
         });
@@ -132,19 +134,10 @@ class TodoList {
         if (todo && newText.trim()) {
             todo.text = newText.trim();
             this.save();
+            this.render();
+        } else {
+            this.render();
         }
-    }
-
-    updateOrder() {
-        const activeOrder = document.getElementById('active-todos').sortable('toArray', { attribute: 'data-id' });
-        const archiveOrder = document.getElementById('archive-todos').sortable('toArray', { attribute: 'data-id' });
-
-        [...activeOrder, ...archiveOrder].forEach((id, index) => {
-            const todo = this.todos.find(t => t.id === parseInt(id));
-            if (todo) todo.order = index;
-        });
-
-        this.save();
     }
 
     save() {
@@ -161,7 +154,6 @@ class TodoList {
     }
 
     render() {
-        // Sort todos by order
         const activeTodos = this.todos
             .filter(t => !t.archived)
             .sort((a, b) => a.order - b.order);
@@ -170,7 +162,6 @@ class TodoList {
             .filter(t => t.archived)
             .sort((a, b) => a.order - b.order);
 
-        // Render each list
         this.elements.activeList.innerHTML = activeTodos.map(todo => this.renderTodoItem(todo)).join('');
         this.elements.archiveList.innerHTML = archivedTodos.map(todo => this.renderTodoItem(todo)).join('');
     }
@@ -178,16 +169,14 @@ class TodoList {
     renderTodoItem(todo) {
         return `
         <div class="todo-item ${todo.completed ? 'completed' : ''}" data-id="${todo.id}">
-          <input type="checkbox" class="form-check-input" 
-            ${todo.completed ? 'checked' : ''} 
-            onchange="todoList.toggleComplete(${todo.id})">
-          <span class="todo-text" onclick="todoList.startEdit(${todo.id})">${todo.text}</span>
+          <input type="checkbox" class="form-check-input complete-btn" ${todo.completed ? 'checked' : ''}>
+          <span class="todo-text">${todo.text}</span>
           <span class="todo-date">
             ${this.formatDate(todo.createdAt)}
             ${todo.archivedAt ? `(Archived: ${this.formatDate(todo.archivedAt)})` : ''}
           </span>
           <div class="todo-actions">
-            <button class="btn btn-sm btn-outline-secondary" onclick="todoList.toggleArchive(${todo.id})">
+            <button class="btn btn-sm btn-outline-secondary archive-btn">
               ${todo.archived ? 'Unarchive' : 'Archive'}
             </button>
           </div>
@@ -203,7 +192,6 @@ class TodoList {
     }
 }
 
-// Initialize TodoList
 let todoList;
 document.addEventListener('DOMContentLoaded', () => {
     todoList = new TodoList();
