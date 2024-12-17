@@ -1,13 +1,35 @@
 {
     "categories": [
         {
+            "name": "AI Tools",
+            "order": 1,
+            "emoji": "fa-solid fa-robot",
+            "links": [
+                {
+                    "name": "ChatGPT",
+                    "href": "https://chat.openai.com",
+                    "emoji": "fa-solid fa-comment-dots"
+                },
+                {
+                    "name": "Claude",
+                    "href": "https://claude.ai",
+                    "emoji": "fa-solid fa-brain"
+                },
+                {
+                    "name": "Ernie Proj",
+                    "href": "https://claude.ai/project/8096bdd5-6f48-4622-ad57-96a37cdf41e5",
+                    "emoji": "fa-solid fa-project-diagram"
+                }
+            ]
+        },
+        {
             "name": "Local",
-            "order": 3,
+            "order": 2,
             "emoji": "fa-solid fa-location-dot",
             "links": [
                 {
                     "name": "Foster City Weather",
-                    "href": "https://weather.gov/forecast/Foster+City,CA",
+                    "href": "https://www.wunderground.com/hourly/us/ca/foster-city",
                     "emoji": "fa-solid fa-cloud"
                 }
             ]
