@@ -7,13 +7,15 @@ class TodoList {
         this.initializeTabs();
         this.render();
         
-        // Listen for changes from other tabs
-        window.addEventListener('storage', (e) => {
+        // Debounce storage events
+        this.handleStorageChange = this.debounce((e) => {
             if (e.key === 'todos') {
                 this.mergeTodos(JSON.parse(e.newValue || '[]'));
                 this.render();
             }
-        });
+        }, 50);
+        
+        window.addEventListener('storage', this.handleStorageChange);
     }
 
     generateTabId() {
@@ -30,19 +32,21 @@ class TodoList {
     }
 
     mergeTodos(otherTodos) {
-        // Create a map of existing todos for quick lookup
         const todoMap = new Map(this.todos.map(todo => [todo.id, todo]));
         
-        // Merge or update todos
         otherTodos.forEach(otherTodo => {
             const existingTodo = todoMap.get(otherTodo.id);
             
             if (!existingTodo) {
-                // New todo from another tab
                 todoMap.set(otherTodo.id, otherTodo);
             } else {
-                // Update existing todo if the other version is newer
-                if (otherTodo.lastModified > (existingTodo.lastModified || 0)) {
+                // Use both timestamp and sequence number for ordering
+                const isNewer = 
+                    otherTodo.lastModified > existingTodo.lastModified ||
+                    (otherTodo.lastModified === existingTodo.lastModified && 
+                     otherTodo.sequence > existingTodo.sequence);
+                
+                if (isNewer) {
                     todoMap.set(otherTodo.id, otherTodo);
                 }
             }
@@ -190,14 +194,24 @@ class TodoList {
     }
 
     save() {
-        // Update lastModified when saving
-        this.todos.forEach(todo => {
-            if (!todo.lastModified) {
-                todo.lastModified = Date.now();
-            }
-        });
-        
-        localStorage.setItem('todos', JSON.stringify(this.todos));
+        try {
+            // Add sequence number for additional ordering safety
+            const seq = parseInt(localStorage.getItem('todoSequence') || '0');
+            localStorage.setItem('todoSequence', (seq + 1).toString());
+            
+            this.todos.forEach(todo => {
+                if (!todo.lastModified) {
+                    todo.lastModified = Date.now();
+                }
+                if (!todo.sequence) {
+                    todo.sequence = seq;
+                }
+            });
+            
+            localStorage.setItem('todos', JSON.stringify(this.todos));
+        } catch (e) {
+            throw e;
+        }
     }
 
     formatDate(dateString) {
@@ -245,6 +259,18 @@ class TodoList {
         tabElements.forEach(tab => {
             new bootstrap.Tab(tab);
         });
+    }
+
+    debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
     }
 }
 
