@@ -6,10 +6,6 @@
   <link href="bootstrap.min.css" rel="stylesheet">
   <link href="styles.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <link rel="icon" type="image/svg+xml"
-    href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgdmlld0JveD0iMCAwIDE2IDE2Ij4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZ3JhZCIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM5MGVlOTA7c3RvcC1vcGFjaXR5OjEiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3R5bGU9InN0b3AtY29sb3I6Izg3Y2VmYTtzdG9wLW9wYWNpdHk6MSIgLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiIgZmlsbD0idXJsKCNncmFkKSIgcng9IjQiIC8+Cjwvc3ZnPg==">
-  <link rel="manifest"
-    href="data:application/json;base64,ewogICJuYW1lIjogIlNlYXJjaCIsCiAgImljb25zIjogWwogICAgewogICAgICAic3JjIjogImRhdGE6aW1hZ2Uvc3ZnK3htbDtiYXNlNjQsUEhOMlp5QjRiV3h1Y3owaWFIUjBjRG92TDNkM2R5NTNNeTV2Y21jdk1qQXdNQzl6ZG1jaUlIZHBaSFJvUFNJeE5pSWdhR1ZwWjJoMFBTSXhOaUlnZG1sbGQwSnZlRDBpTUNBd0lERTJJREUySWo0S0lDQThaR1ZtY3o0S0lDQWdJRHhzYVc1bFlYSkhjbUZrYVdWdWRDQnBaRDBpWjNKaFpDSWdlREU5SWpBbElpQjVNVDBpTUNVaUlIZ3lQU0l4TURBbElpQjVNajBpTVRBd0pTSStDaUFnSUNBZ0lEeHpkRzl3SUc5bVpuTmxkRDBpTUNVaUlITjBlV3hsUFNKemRHOXdMV052Ykc5eU9pTTVNR1ZsT1RBN2MzUnZjQzF2Y0dGamFYUjVPakVpSUM4K0NpQWdJQ0FnSUR4emRHOXdJRzltWm5ObGREMGlNVEF3SlNJZ2MzUjViR1U5SW5OMGIzQXRZMjlzYjNJNkl6ZzNZMlZtWVR0emRHOXdMVzl3WVdOcGRIazZNU0lnTHo0S0lDQWdJRHd2YkdsdVpXRnlSM0poWkdsbGJuUStDaUFnUEM5a1pXWnpQZ29nSUR4eVpXTjBJSGRwWkhSb1BTSXhOaUlnYUdWcFoyaDBQU0l4TmlJZ1ptbHNiRDBpZFhKc0tDTm5jbUZrS1NJZ2NuZzlJalFpSUM4K0NqOCsiCiAgICB9CiAgXQp9">
   <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
 
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -22,6 +18,18 @@
   <div class="container py-4 main-container">
     <div class="display-4 text-primary mb-4">Hello, You!</div>
     <div class="display-3 mb-4" id="time"></div>
+    <div class="stopwatch-container mb-4">
+      <div id="stopwatch" class="display-4">
+        <button class="btn btn-outline-primary" id="start-stopwatch">Start Stopwatch</button>
+      </div>
+      <div id="stopwatch-controls" class="mt-2" style="display: none;">
+        <button class="btn btn-primary btn-sm" id="pause-stopwatch">Pause</button>
+        <button class="btn btn-secondary btn-sm" id="stop-stopwatch">Stop</button>
+      </div>
+    </div>
+  <div class="mb-4">
+    <button class="btn btn-sm btn-outline-dark" id="sort-tabs">Sort Open Tabs</button>
+  </div>
     <div id="categories-container"></div>
   </div>
   <div class="container todo-container mb-4">
@@ -55,9 +63,8 @@
     </div>
     <div class="backup-controls"></div>
     <button id="export-todos" class="btn btn-sm btn-outline-primary">Export Todos</button>
-    <input type="file" id="import-file-input" style="display:none;" accept=".json">
+    <input type="file" id="import-file-input" class="hidden" accept=".json">
     <button id="import-todos" class="btn btn-sm btn-outline-secondary">Import Todos</button>
-  </div>
   </div>
 
   <form action="https://www.google.com/search" method="GET" class="container search-container">

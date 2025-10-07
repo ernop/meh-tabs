@@ -1,6 +1,13 @@
 # Firefox New Tab Extension
 # Purpose: Replace default new tab page with custom implementation
 
+## REMEMBER that in extensions, there are other types of rules, based on the manifest, which you have to be very careful to follow, such as avoiding inline css styles and onclick actions.
+
+- At the moment, you cannot just keep adding security overrides. Instead, you should at least try to code the extension css/js etc propertly.
+
+## Speaking with me:
+- When working together, if I give you an unclear directive, or if you need to know more information or see other files, please do ask about that or offer me options.
+
 ## Core Features
 - Custom new tab page replacement
 - Local extension (self-hosted/personal use)

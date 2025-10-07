@@ -1,5 +1,7 @@
 # Todo List Extension for New Tab
 
+
+
 ## Overview
 This is a Firefox/Chrome extension that replaces the default new tab page with a custom implementation featuring a sophisticated todo list manager, clock display, and quick links organization.
 
@@ -73,6 +75,45 @@ The application is split into several key components:
 - Organized in collapsible sections
 - Quick access to frequently used links
 - Customizable through links.json
+
+### Personal Configuration
+
+The extension supports personal configuration to keep your private links and tab sorting preferences separate from the public codebase:
+
+1. **Create `personal-config.json`** (optional):
+   ```json
+   {
+     "megaPriority": [
+       "mail.google.com",
+       "calendar.google.com",
+       "your-favorite-sites.com"
+     ],
+     "categories": [
+       {
+         "name": "Your Category",
+         "order": 1,
+         "emoji": "fa-solid fa-star",
+         "links": [
+           {
+             "name": "Your Link",
+             "href": "https://your-site.com",
+             "category": "Your Category",
+             "emoji": "fa-solid fa-link"
+           }
+         ]
+       }
+     ]
+   }
+   ```
+
+2. **Fallback Behavior**:
+   - If `personal-config.json` exists, it will be used for both links and tab sorting priorities
+   - If not found, the extension falls back to the default `links.json` configuration
+   - This allows sharing the extension publicly while keeping personal data private
+
+3. **Git Integration**:
+   - `personal-config.json` is automatically ignored by git (added to `.gitignore`)
+   - The default `links.json` contains example links safe for public sharing
 
 ## Technical Requirements
 - Modern browser with localStorage support

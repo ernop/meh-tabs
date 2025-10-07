@@ -1,0 +1,26 @@
+# Personal configuration - contains private links and preferences
+personal-config.json
+
+# Extension packages
+*.xpi
+
+# Node modules if using npm
+node_modules/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+links.json
