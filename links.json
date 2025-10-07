@@ -3,75 +3,94 @@
         {
             "name": "AI Tools",
             "order": 1,
-            "emoji": "fa-solid fa-robot",
+            "emoji": "🤖",
             "links": [
                 {
                     "name": "ChatGPT",
                     "href": "https://chat.openai.com",
                     "category": "AI Tools",
-                    "emoji": "fa-solid fa-comment-dots"
+                    "emoji": "💬"
                 },
                 {
                     "name": "Claude",
                     "href": "https://claude.ai",
                     "category": "AI Tools",
-                    "emoji": "fa-solid fa-brain"
-        },
-        {
+                    "emoji": "🧠"
+                },
+                {
                     "name": "Claude+Ernie Proj",
                     "href": "https://claude.ai/project/8096bdd5-6f48-4622-ad57-96a37cdf41e5",
                     "category": "Projects",
-                    "emoji": "fa-solid fa-project-diagram"
+                    "emoji": "📊"
                 },
-				{
+                {
                     "name": "Grok",
                     "href": "https://grok.com",
                     "category": "AI Tools",
-                    "emoji": "fa-solid fa-brain"
-                },
-           
-                
-                {
-                    "name": "Flight Connections",
-                    "href": "https://www.flightconnections.com/",
-                    "category": "Travel",
-                    "emoji": "fa-solid fa-plane"
-                },
-                {
-                    "name": "Ernie Travel",
-                    "href": "https://docs.google.com/document/d/1XrRC9QoyAtkGacHopibEyxB0N4u7DVNTFfFR-aM6xD0/edit?tab=t.0",
-                    "category": "Travel",
-                    "emoji": "fa-solid fa-plane"
-                },
-                {
-                    "name": "Foster City Weather",
-                    "href": "https://www.wunderground.com/hourly/us/ca/foster-city",
-                    "category": "Local",
-                    "emoji": "fa-solid fa-cloud"
-                },
-                {
-                    "name": "Todo",
-                    "href": "https://docs.google.com/document/d/1Hs25c_hxD9weaLCb1cDrueCf014N33CNGH6kSPAmAdU/edit?tab=t.0",
-                    "category": "Local",
-                    "emoji": "fa-solid fa-brain"
-                },
-                {
-                    "name": "Meds",
-                    "href": "https://docs.google.com/document/d/1CJ9fS8LMEv0JF_m5ER4eaNEzgzQ_CaueYl2K04cm324/edit?tab=t.0",
-                    "category": "Local",
-                    "emoji": "fa-solid fa-brain"
+                    "emoji": "🧠"
                 },
                 {
                     "name": "MMMU Benchmarks",
                     "href": "https://mmmu-benchmark.github.io/",
                     "category": "AI Tools",
-                    "emoji": "fa-solid fa-brain"
+                    "emoji": "🧠"
+                }
+            ]
+        },
+        {
+            "name": "Travel",
+            "order": 2,
+            "emoji": "✈️",
+            "links": [
+                {
+                    "name": "Flight Connections",
+                    "href": "https://www.flightconnections.com/",
+                    "category": "Travel",
+                    "emoji": "✈️"
                 },
+                {
+                    "name": "Ernie Travel",
+                    "href": "https://docs.google.com/document/d/1XrRC9QoyAtkGacHopibEyxB0N4u7DVNTFfFR-aM6xD0/edit?tab=t.0",
+                    "category": "Travel",
+                    "emoji": "✈️"
+                }
+            ]
+        },
+        {
+            "name": "Local",
+            "order": 3,
+            "emoji": "🏠",
+            "links": [
+                {
+                    "name": "Foster City Weather",
+                    "href": "https://www.wunderground.com/hourly/us/ca/foster-city",
+                    "category": "Local",
+                    "emoji": "☁️"
+                },
+                {
+                    "name": "Todo",
+                    "href": "https://docs.google.com/document/d/1Hs25c_hxD9weaLCb1cDrueCf014N33CNGH6kSPAmAdU/edit?tab=t.0",
+                    "category": "Local",
+                    "emoji": "📝"
+                },
+                {
+                    "name": "Meds",
+                    "href": "https://docs.google.com/document/d/1CJ9fS8LMEv0JF_m5ER4eaNEzgzQ_CaueYl2K04cm324/edit?tab=t.0",
+                    "category": "Local",
+                    "emoji": "💊"
+                }
+            ]
+        },
+        {
+            "name": "Health",
+            "order": 4,
+            "emoji": "❤️",
+            "links": [
                 {
                     "name": "Cure Parkinson's board",
                     "href": "https://healthunlocked.com/cure-parkinsons/posts",
                     "category": "Health",
-                    "emoji": "fa-solid fa-heart"
+                    "emoji": "❤️"
                 }
             ]
         }

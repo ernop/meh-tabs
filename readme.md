@@ -92,13 +92,13 @@ The extension supports personal configuration to keep your private links and tab
        {
          "name": "Your Category",
          "order": 1,
-         "emoji": "fa-solid fa-star",
+         "emoji": "⭐",
          "links": [
            {
              "name": "Your Link",
              "href": "https://your-site.com",
              "category": "Your Category",
-             "emoji": "fa-solid fa-link"
+             "emoji": "🔗"
            }
          ]
        }

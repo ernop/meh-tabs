@@ -2,14 +2,18 @@
   "manifest_version": 2,
   "name": "Custom New Tab",
   "version": "1.0",
-  "description": "Replaces the new tab page with a custom page",
+  "description": "Replaces the new tab page with a custom page featuring quick links, todo list, and tab management",
+  "applications": {
+    "gecko": {
+      "id": "custom-new-tab@yourname.com"
+    }
+  },
   "chrome_url_overrides": {
     "newtab": "newtab.html"
   },
   "permissions": [
     "storage",
-    "tabs",
-    "activeTab"
+    "tabs"
   ],
   "background": {
     "scripts": ["background.js"],
@@ -24,6 +28,5 @@
     "styles.css",
     "todo.js",
     "bootstrap.min.css"
-  ],
-  "content_security_policy": "default-src 'self'; script-src 'self' https://code.jquery.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://code.jquery.com; font-src 'self' https://cdnjs.cloudflare.com"
+  ]
 }
