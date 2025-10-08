@@ -14,14 +14,18 @@ This is a Firefox/Chrome extension that replaces the default new tab page with a
 - Drag-and-drop reordering of items
 - Persistent storage using localStorage
 - Real-time synchronization across browser tabs
+- Export todos to JSON backup file (with timestamps)
+- Import todos from previously exported backups
 
 ### User Interface
 - Clean, modern Bootstrap-based design
 - Separate tabs for active and archived todos
 - Responsive layout
-- Real-time clock and date display
+- Real-time clock and date display (24-hour format)
+- Built-in stopwatch with pause/resume functionality
 - Quick Google search integration
-- Organized category-based bookmarks
+- Organized category-based bookmarks with Unicode emojis
+- Smart tab sorting (audio tabs, priority domains, then alphabetical)
 
 ## Technical Implementation
 
@@ -44,10 +48,12 @@ The program handles multi-tab synchronization through:
 
 ### Code Organization
 The application is split into several key components:
-1. Todo Management (todo.js)
-2. New Tab Interface (newtab.js)
-3. Link Categories (links.json)
-4. Styling (styles.css)
+1. **Todo Management** (`todo.js`) - TodoList class with drag-drop, export/import
+2. **New Tab Interface** (`newtab.js`) - Clock, stopwatch, links, search
+3. **Background Script** (`background.js`) - Tab sorting with priority handling
+4. **Link Categories** (`links.json`) - Default configuration with Unicode emojis
+5. **Personal Config** (`personal-config.json`) - Personal configuration with Unicode emojis
+6. **Styling** (`styles.css` + `bootstrap.min.css`) - Custom and Bootstrap styles
 
 ## Key Methods
 
@@ -104,7 +110,6 @@ The extension supports personal configuration to keep your private links and tab
        }
      ]
    }
-   ```
 
 2. **Fallback Behavior**:
    - If `personal-config.json` exists, it will be used for both links and tab sorting priorities
@@ -117,9 +122,12 @@ The extension supports personal configuration to keep your private links and tab
 
 ## Technical Requirements
 - Modern browser with localStorage support
-- Bootstrap 5.x
-- SortableJS library
-- FontAwesome icons
+- Firefox (primary) or Chrome/Chromium-based browsers
+- Dependencies loaded from CDN:
+  - jQuery 3.6.0
+  - jQuery UI 1.12.1
+  - Bootstrap 5.1.3 (JS and CSS)
+  - SortableJS 1.15.0
 
 ## Browser Support
 - Firefox (primary)

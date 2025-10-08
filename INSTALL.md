@@ -63,13 +63,15 @@
 Your custom new tab extension includes:
 
 - ✅ **Custom New Tab Page** - Replaces Firefox's default new tab
-- ✅ **Quick Links** - Organized categories with your favorite sites
-- ✅ **Todo List** - Local todo management with drag-and-drop
-- ✅ **Time Display** - Real-time clock and date
-- ✅ **Stopwatch** - Built-in timing functionality
-- ✅ **Tab Sorting** - Alphabetical tab organization
+- ✅ **Quick Links** - Organized categories with your favorite sites (Unicode emojis)
+- ✅ **Todo List** - Local todo management with drag-and-drop, export/import backup functionality
+- ✅ **Time Display** - Real-time clock and date in 24-hour format
+- ✅ **Stopwatch** - Built-in timing functionality with pause/resume
+- ✅ **Smart Tab Sorting** - Prioritizes tabs with audio, then custom domains, then alphabetically
 - ✅ **Google Search** - Quick search integration
-- ✅ **Local Storage** - All data stored locally, no external dependencies
+- ✅ **Local Storage** - All data stored locally (localStorage)
+- ✅ **Dual Configuration** - Supports both `links.json` (default) and `personal-config.json` (preferred)
+- ✅ **CDN Dependencies** - jQuery, jQuery-UI, Bootstrap, and Sortable loaded from CDNs
 
 ## Troubleshooting
 
@@ -79,16 +81,22 @@ Your custom new tab extension includes:
 - Verify `manifest.json` is valid JSON
 
 ### Icons Not Showing
-- Icons are now Unicode emojis (should work automatically)
-- If emojis don't show, check your system font support
+- Icons use Unicode emojis (🤖, 💬, ⭐, etc.)
+- Emojis should work automatically with system fonts
+- If emojis don't display properly, check your operating system's font support
 
 ### Tab Sorting Not Working
 - Verify the extension has "tabs" permission in `manifest.json`
 - Check that the background script is loaded properly
+- Tab sorting prioritizes: 1) Tabs with audio, 2) MegaPriority domains, 3) Alphabetically by URL
+- MegaPriority domains are configured in `background.js` (hardcoded) and optionally in `personal-config.json`
 
 ### Todo List Not Saving
 - Ensure localStorage is enabled in Firefox
 - Check browser console for JavaScript errors
+- Use Export/Import buttons at the bottom of the todo section to backup/restore todos
+- Export creates a timestamped JSON backup file
+- Import allows you to restore from a previously exported backup file
 
 ## Development
 
@@ -108,21 +116,32 @@ mynewtab/
 ├── todo.js               # Todo list functionality
 ├── background.js         # Background script for tab sorting
 ├── styles.css            # Custom styles
-├── bootstrap.min.css     # Bootstrap CSS
-├── links.json            # Default link categories
-├── personal-config.json  # Personal link configuration
-└── lib/                  # Local dependencies
-    ├── jquery-3.6.0.min.js
-    ├── jquery-ui.min.js
-    ├── bootstrap.bundle.min.js
-    ├── sortable.min.js
+├── bootstrap.min.css     # Bootstrap CSS (local)
+├── links.json            # Default link categories (Unicode emojis)
+├── personal-config.json  # Personal link configuration (Unicode emojis)
+├── mynewtab.xpi          # Packaged extension file
+└── chrome-extension/     # Chrome variant (if applicable)
+    ├── links.json
+    └── personal-config.json
 ```
+
+**Note:** JavaScript dependencies (jQuery, jQuery-UI, Bootstrap JS, Sortable) are loaded from CDNs in `newtab.html`, not stored locally.
 
 ## Customization
 
-### Adding Links
-Edit `links.json` or create `personal-config.json` with your categories and links:
+### Configuration Priority
 
+The extension loads configuration files in the following order:
+1. **`personal-config.json`** (if exists) - Your personal configuration (preferred)
+2. **`links.json`** (fallback) - Default configuration
+
+This allows you to keep your personal settings separate from the default configuration.
+
+### Adding Links
+
+Edit `links.json` or create/edit `personal-config.json` with your categories and links.
+
+**Example configuration:**
 ```json
 {
   "categories": [
@@ -143,8 +162,70 @@ Edit `links.json` or create `personal-config.json` with your categories and link
 }
 ```
 
+All icons use simple Unicode emojis - no external icon libraries needed!
+
+**Priority Tab Sorting** (in `personal-config.json`):
+You can also add a `megaPriority` array to prioritize certain domains when sorting tabs:
+```json
+{
+  "megaPriority": [
+    "mail.google.com",
+    "calendar.google.com",
+    "chatgpt.com"
+  ],
+  "categories": [ ... ]
+}
+```
+
+### Tab Sorting Priority
+
+To customize which domains get priority when sorting tabs, you have two options:
+
+**Option 1: Edit `background.js` (Hardcoded Priority)**
+Modify the `megaPriority` array around line 15:
+```javascript
+const megaPriority = [
+  'mail.google.com',
+  'calendar.google.com',
+  'chatgpt.com',
+  // Add your preferred domains here
+];
+```
+
+**Option 2: Use `personal-config.json` (Optional, Not Currently Implemented)**
+Add a `megaPriority` array to your config file (note: this requires the background script to load and use this config, which is not currently implemented):
+```json
+{
+  "megaPriority": [
+    "mail.google.com",
+    "chatgpt.com"
+  ],
+  "categories": [ ... ]
+}
+```
+
+**Tab Sorting Order:**
+1. Tabs with audio playing (highest priority)
+2. MegaPriority domains (in order specified)
+3. All other tabs alphabetically by URL
+
 ### Styling
 Modify `styles.css` to customize the appearance of your new tab page.
+
+### Stopwatch Usage
+- Click "Start Stopwatch" to begin timing
+- Use "Pause" to pause/resume
+- Use "Stop" to reset the stopwatch
+- Stopwatch displays time in `Xm XXs` format
+
+### Todo List Features
+- Add tasks with the input field at the bottom
+- Click on task text to edit inline
+- Drag and drop to reorder tasks
+- Archive completed tasks to keep active list clean
+- Export todos to JSON backup file (includes timestamp)
+- Import previously exported todos
+- All changes sync across open tabs via localStorage events
 
 ## Support
 
