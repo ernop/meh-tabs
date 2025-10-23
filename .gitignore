@@ -1,5 +1,6 @@
 # Personal configuration - contains private links and preferences
 personal-config.json
+chrome-extension/personal-config.json
 
 # Extension packages
 *.xpi

@@ -1,0 +1,69 @@
+{
+    "megaPriority": [
+        "mail.google.com",
+        "calendar.google.com", 
+        "docs.google.com",
+        "chatgpt.com",
+        "claude.ai"
+    ],
+    "categories": [
+        {
+            "name": "AI Tools",
+            "order": 1,
+            "emoji": "fa-solid fa-robot",
+            "links": [
+                {
+                    "name": "ChatGPT",
+                    "href": "https://chat.openai.com",
+                    "category": "AI Tools",
+                    "emoji": "fa-solid fa-comment-dots"
+                },
+                {
+                    "name": "Claude",
+                    "href": "https://claude.ai",
+                    "category": "AI Tools",
+                    "emoji": "fa-solid fa-brain"
+                },
+                {
+                    "name": "Grok",
+                    "href": "https://grok.com",
+                    "category": "AI Tools",
+                    "emoji": "fa-solid fa-brain"
+                }
+            ]
+        },
+        {
+            "name": "Travel",
+            "order": 2,
+            "emoji": "fa-solid fa-plane",
+            "links": [
+                {
+                    "name": "Flight Connections",
+                    "href": "https://www.flightconnections.com/",
+                    "category": "Travel",
+                    "emoji": "fa-solid fa-plane"
+                }
+            ]
+        },
+        {
+            "name": "Productivity",
+            "order": 3,
+            "emoji": "fa-solid fa-tasks",
+            "links": [
+                {
+                    "name": "Gmail",
+                    "href": "https://mail.google.com",
+                    "category": "Productivity",
+                    "emoji": "fa-solid fa-envelope"
+                },
+                {
+                    "name": "Google Calendar",
+                    "href": "https://calendar.google.com",
+                    "category": "Productivity",
+                    "emoji": "fa-solid fa-calendar"
+                }
+            ]
+        }
+    ]
+}
+

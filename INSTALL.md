@@ -2,6 +2,25 @@
 
 ## Installing Your Custom New Tab Extension
 
+### Initial Setup (First Time Only)
+
+Before installing the extension, set up your personal configuration:
+
+1. **Create your personal config file:**
+   ```powershell
+   # Copy the example to create your personal config
+   Copy-Item links.json.example personal-config.json
+   ```
+
+2. **Edit `personal-config.json`** with your favorite links and personal URLs
+   - This file is gitignored so your personal data stays private
+   - You can add personal Google Docs, specific project links, etc.
+
+3. **(Optional) Set up Chrome extension variant:**
+   ```powershell
+   Copy-Item chrome-extension\links.json.example chrome-extension\personal-config.json
+   ```
+
 ### Method 1: Temporary Installation (For Development/Testing)
 
 1. **Open Firefox** and navigate to `about:debugging`
@@ -132,10 +151,15 @@ mynewtab/
 ### Configuration Priority
 
 The extension loads configuration files in the following order:
-1. **`personal-config.json`** (if exists) - Your personal configuration (preferred)
-2. **`links.json`** (fallback) - Default configuration
+1. **`personal-config.json`** (if exists) - Your personal configuration (preferred, gitignored)
+2. **`links.json`** (fallback) - Default configuration (gitignored)
 
-This allows you to keep your personal settings separate from the default configuration.
+This allows you to:
+- Keep personal URLs and data private (not committed to git)
+- Share the extension code publicly without exposing personal information
+- Have different configurations for different environments
+
+**Important:** Both `personal-config.json` and `links.json` are gitignored. Use `links.json.example` as your reference for the proper file structure.
 
 ### Adding Links
 

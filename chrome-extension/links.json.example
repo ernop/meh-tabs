@@ -1,0 +1,62 @@
+{
+    "categories": [
+        {
+            "name": "AI Tools",
+            "order": 1,
+            "emoji": "🤖",
+            "links": [
+                {
+                    "name": "ChatGPT",
+                    "href": "https://chat.openai.com",
+                    "category": "AI Tools",
+                    "emoji": "💬"
+                },
+                {
+                    "name": "Claude",
+                    "href": "https://claude.ai",
+                    "category": "AI Tools",
+                    "emoji": "🧠"
+                },
+                {
+                    "name": "Grok",
+                    "href": "https://grok.com",
+                    "category": "AI Tools",
+                    "emoji": "🧠"
+                }
+            ]
+        },
+        {
+            "name": "Travel",
+            "order": 2,
+            "emoji": "✈️",
+            "links": [
+                {
+                    "name": "Flight Connections",
+                    "href": "https://www.flightconnections.com/",
+                    "category": "Travel",
+                    "emoji": "✈️"
+                }
+            ]
+        },
+        {
+            "name": "Productivity",
+            "order": 3,
+            "emoji": "📝",
+            "links": [
+                {
+                    "name": "Gmail",
+                    "href": "https://mail.google.com",
+                    "category": "Productivity",
+                    "emoji": "✉️"
+                },
+                {
+                    "name": "Google Calendar",
+                    "href": "https://calendar.google.com",
+                    "category": "Productivity",
+                    "emoji": "📅"
+                }
+            ]
+        }
+    ]
+}
+

@@ -1,134 +1,138 @@
-# Todo List Extension for New Tab
+# Firefox New Tab Extension
 
+Replace your default Firefox new tab page with a custom implementation featuring:
+- Quick access to favorite links organized by category
+- Real-time clock and date display
+- Built-in stopwatch
+- Todo list with task management
+- Tab sorting functionality
+- Google search integration
 
+## Installation
 
-## Overview
-This is a Firefox/Chrome extension that replaces the default new tab page with a custom implementation featuring a sophisticated todo list manager, clock display, and quick links organization.
+1. **Clone or download this repository**
 
-## Core Features
+2. **Set up your personal configuration** (first-time setup):
+   ```bash
+   # Copy the example files to create your personal config
+   cp links.json.example personal-config.json
+   # OR for Chrome extension directory:
+   cp chrome-extension/links.json.example chrome-extension/personal-config.json
+   ```
 
-### Todo List Management
-- Create, edit, and delete todo items
-- Mark todos as complete/incomplete
-- Archive/unarchive functionality
-- Drag-and-drop reordering of items
-- Persistent storage using localStorage
-- Real-time synchronization across browser tabs
-- Export todos to JSON backup file (with timestamps)
-- Import todos from previously exported backups
+3. **Customize your links**:
+   - Edit `personal-config.json` with your favorite links, categories, and personal URLs
+   - The file is gitignored so your personal data won't be committed
+   - See the example files for the structure
 
-### User Interface
-- Clean, modern Bootstrap-based design
-- Separate tabs for active and archived todos
-- Responsive layout
-- Real-time clock and date display (24-hour format)
-- Built-in stopwatch with pause/resume functionality
-- Quick Google search integration
-- Organized category-based bookmarks with Unicode emojis
-- Smart tab sorting (audio tabs, priority domains, then alphabetical)
+4. **Load the extension in Firefox**:
+   - Open Firefox and navigate to `about:debugging`
+   - Click "This Firefox"
+   - Click "Load Temporary Add-on"
+   - Navigate to the extension directory and select `manifest.json`
 
-## Technical Implementation
+## Configuration
 
-### Data Storage
-- Uses browser's localStorage for todo persistence
-- Implements conflict resolution for multi-tab editing
-- Maintains item ordering through sequence numbers
-- Stores metadata including:
-  - Creation timestamps
-  - Last modified dates
-  - Archive dates
-  - Completion status
+### Personal Configuration File
 
-### Synchronization
-The program handles multi-tab synchronization through:
-- Storage event listeners
-- Debounced updates to prevent race conditions
-- Timestamp-based conflict resolution
-- Unique tab IDs for operation tracking
+The extension looks for `personal-config.json` first, then falls back to `links.json` if not found. This allows you to:
+- Keep your personal links and URLs private
+- Share the extension code publicly without exposing personal data
+- Have different configs for different environments
 
-### Code Organization
-The application is split into several key components:
-1. **Todo Management** (`todo.js`) - TodoList class with drag-drop, export/import
-2. **New Tab Interface** (`newtab.js`) - Clock, stopwatch, links, search
-3. **Background Script** (`background.js`) - Tab sorting with priority handling
-4. **Link Categories** (`links.json`) - Default configuration with Unicode emojis
-5. **Personal Config** (`personal-config.json`) - Personal configuration with Unicode emojis
-6. **Styling** (`styles.css` + `bootstrap.min.css`) - Custom and Bootstrap styles
+### Configuration Structure
 
-## Key Methods
+```json
+{
+    "megaPriority": [
+        "domain1.com",
+        "domain2.com"
+    ],
+    "categories": [
+        {
+            "name": "Category Name",
+            "order": 1,
+            "emoji": "fa-solid fa-icon-name",
+            "links": [
+                {
+                    "name": "Link Name",
+                    "href": "https://example.com",
+                    "category": "Category Name",
+                    "emoji": "fa-solid fa-icon-name"
+                }
+            ]
+        }
+    ]
+}
+```
 
-### Todo Management
+- **megaPriority**: List of domains for tab sorting (highest priority domains listed first)
+- **categories**: Array of link categories
+  - **order**: Determines display order (lower numbers appear first)
+  - **emoji**: FontAwesome class or emoji character
+  - **links**: Array of links within the category
 
-### UI Components
-- Sortable drag-and-drop interface
-- Inline editing of todo items
-- Tab-based navigation between active/archived items
-- Category-based bookmark organization
+## Features
 
-## Usage
+### Quick Links
+- Organized by customizable categories
+- Visual emoji icons for easy recognition
+- Card-based layout for clean appearance
 
-### Adding Todos
-1. Type task in the input field
-2. Press Enter or click "Add" button
+### Time & Date
+- Real-time clock with AM/PM indicator
+- Current day, month, and date display
 
-### Managing Todos
-- Click checkbox to complete
-- Click text to edit
-- Use Archive button to move to archive
-- Drag and drop to reorder
+### Stopwatch
+- Start, pause, resume, and stop functionality
+- Displays time in minutes and seconds
 
-### Categories and Bookmarks
-- Organized in collapsible sections
-- Quick access to frequently used links
-- Customizable through links.json
+### Todo List
+- Add, complete, and archive tasks
+- Drag-and-drop reordering
+- Export/import functionality for backup
+- Persistent storage using browser's local storage
 
-### Personal Configuration
+### Tab Sorting
+- Sort all open tabs alphabetically
+- Prioritizes specific domains (from megaPriority list)
 
-The extension supports personal configuration to keep your private links and tab sorting preferences separate from the public codebase:
+### Search
+- Quick Google search directly from the new tab page
 
-1. **Create `personal-config.json`** (optional):
-   ```json
-   {
-     "megaPriority": [
-       "mail.google.com",
-       "calendar.google.com",
-       "your-favorite-sites.com"
-     ],
-     "categories": [
-       {
-         "name": "Your Category",
-         "order": 1,
-         "emoji": "⭐",
-         "links": [
-           {
-             "name": "Your Link",
-             "href": "https://your-site.com",
-             "category": "Your Category",
-             "emoji": "🔗"
-           }
-         ]
-       }
-     ]
-   }
+## Development
 
-2. **Fallback Behavior**:
-   - If `personal-config.json` exists, it will be used for both links and tab sorting priorities
-   - If not found, the extension falls back to the default `links.json` configuration
-   - This allows sharing the extension publicly while keeping personal data private
+### File Structure
+```
+/
+├── newtab.html           # Main page template
+├── newtab.js             # Core functionality
+├── todo.js               # Todo list implementation
+├── background.js         # Background script for tab management
+├── styles.css            # Custom styles
+├── manifest.json         # Extension configuration
+├── bootstrap.min.css     # Bootstrap framework
+├── links.json.example    # Example configuration (public)
+└── personal-config.json  # Your personal config (gitignored)
+```
 
-3. **Git Integration**:
-   - `personal-config.json` is automatically ignored by git (added to `.gitignore`)
-   - The default `links.json` contains example links safe for public sharing
+### Security
+- Follows Firefox extension security policies
+- No inline CSS or onclick handlers
+- Content Security Policy compliant
 
-## Technical Requirements
-- Modern browser with localStorage support
-- Firefox (primary) or Chrome/Chromium-based browsers
-- Dependencies loaded from CDN:
-  - jQuery 3.6.0
-  - jQuery UI 1.12.1
-  - Bootstrap 5.1.3 (JS and CSS)
-  - SortableJS 1.15.0
+## Browser Compatibility
 
-## Browser Support
-- Firefox (primary)
-- Chrome/Chromium-based browsers
+- **Primary**: Firefox (manifest v2)
+- **Note**: Chrome support available via `chrome-extension/` directory
+
+## Privacy
+
+- All data stored locally in your browser
+- No external tracking or analytics
+- Personal configuration files are gitignored
+- Safe to fork and share publicly
+
+## License
+
+Free to use and modify for personal use.
