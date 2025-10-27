@@ -24,33 +24,12 @@ function updateTime() {
 
 // Links rendering functions
 function createLinkCard(link) {
-  return `
-    <div class="col">
-      <a href="${link.href}" class="card h-100 text-decoration-none text-dark">
-        <div class="card-body text-center">
-          <i class="${link.emoji} icon"></i><br>
-          ${link.name}
-        </div>
-      </a>
-    </div>
-  `;
+  return `<a href="${link.href}" class="link-btn"><i class="${link.emoji}"></i> ${link.name}</a>`;
 }
 
 function createCategorySection(category) {
   const linksHtml = category.links.map(createLinkCard).join('');
-  return `
-    <div class="category-section">
-      <div class="category-header">
-        <h2 class="h4">
-          <i class="${category.emoji} me-2"></i>
-          ${category.name}
-        </h2>
-      </div>
-      <div class="row row-cols-2 row-cols-md-4 g-3">
-        ${linksHtml}
-      </div>
-    </div>
-  `;
+  return `<div class="category-section"><div class="category-header"><h2 class="h4"><i class="${category.emoji} me-2"></i>${category.name}</h2></div><div class="links-container">${linksHtml}</div></div>`;
 }
 
 // Load and render links
@@ -334,17 +313,16 @@ class EntertainmentDomainManager {
       
       domainItem.classList.add('removing');
       
-      // Replace remove button with undo button
-      const removeBtn = domainItem.querySelector('.remove-entertainment-btn');
-      const undoBtn = document.createElement('button');
-      undoBtn.className = 'undo-entertainment-btn';
-      undoBtn.textContent = 'Undo';
-      undoBtn.dataset.domain = domain;
-      
-      removeBtn.replaceWith(undoBtn);
+      // Replace content with undo button
+      domainItem.innerHTML = `
+        <button class="undo-entertainment-btn" data-domain="${domain}">Undo</button>
+        <span class="entertainment-domain-text">${domain}</span>
+      `;
       
       // Set up undo listener
-      undoBtn.addEventListener('click', () => {
+      const undoBtn = domainItem.querySelector('.undo-entertainment-btn');
+      undoBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
         this.cancelRemoval(domain);
       });
       
@@ -380,15 +358,18 @@ class EntertainmentDomainManager {
       .sort()
       .map(domain => `
         <div class="entertainment-domain-item" data-domain="${domain}">
-          <button class="remove-entertainment-btn" data-domain="${domain}">×</button>
+          <button class="remove-entertainment-btn" data-domain="${domain}">&times;</button>
           <span class="entertainment-domain-text">${domain}</span>
         </div>
       `).join('');
     
-    // Attach remove button listeners
-    this.elements.list.querySelectorAll('.remove-entertainment-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.removeEntertainmentDomain(btn.dataset.domain, false);
+    // Attach listeners to entire domain item (not just the button)
+    this.elements.list.querySelectorAll('.entertainment-domain-item').forEach(item => {
+      item.addEventListener('click', () => {
+        // Don't remove if it's already in "removing" state
+        if (!item.classList.contains('removing')) {
+          this.removeEntertainmentDomain(item.dataset.domain, false);
+        }
       });
     });
   }
