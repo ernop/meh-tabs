@@ -62,3 +62,69 @@
     gap: 10px;
     justify-content: center;
 }
+
+.entertainment-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 50px;
+}
+
+.entertainment-domain-item {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    background: #d1ecf1;
+    border: 1px solid #bee5eb;
+    border-radius: 20px;
+    font-size: 0.9em;
+    transition: opacity 0.3s ease;
+}
+
+.entertainment-domain-item.removing {
+    opacity: 0.5;
+}
+
+.entertainment-domain-text {
+    margin-left: 8px;
+}
+
+.remove-entertainment-btn {
+    background: none;
+    border: none;
+    color: #0c5460;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+    font-size: 1.2em;
+    line-height: 1;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.remove-entertainment-btn:hover {
+    background: rgba(12, 84, 96, 0.1);
+    color: #062a30;
+}
+
+.undo-entertainment-btn {
+    background: none;
+    border: none;
+    color: #856404;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0 8px;
+    font-size: 0.85em;
+    text-decoration: underline;
+    margin-left: 8px;
+}
+
+.undo-entertainment-btn:hover {
+    color: #533f03;
+    text-decoration: none;
+}

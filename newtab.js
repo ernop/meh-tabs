@@ -159,10 +159,8 @@ class Stopwatch {
 }
 
 
-// Update the sort button handler in newtab.js to use the background script
-// Replace the existing sort button click handler with this:
-
-function initializeTabSortingViaBackground() {
+// Tab sorting button handler - uses background script for full permissions
+function initializeTabSorting() {
   const sortButton = document.getElementById('sort-tabs');
   
   if (!sortButton) {
@@ -209,18 +207,323 @@ function initializeTabSortingViaBackground() {
   });
 }
 
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeTabSortingViaBackground);
-} else {
-  initializeTabSortingViaBackground();
+// Entertainment domain list management
+class EntertainmentDomainManager {
+  constructor() {
+    this.entertainmentDomains = [];
+    this.browserAPI = window.browser || window.chrome;
+    this.storageKey = 'entertainmentDomains';
+    this.removalTimeouts = new Map(); // Track pending removals
+    
+    this.elements = {
+      input: document.getElementById('add-entertainment-domain'),
+      addBtn: document.getElementById('add-entertainment-btn'),
+      list: document.getElementById('entertainment-domains-list'),
+      suggestions: document.getElementById('domain-suggestions')
+    };
+    
+    this.init();
+  }
+  
+  async init() {
+    await this.loadEntertainmentDomains();
+    this.renderEntertainmentList();
+    this.attachEventListeners();
+    await this.updateDomainSuggestions();
+  }
+  
+  async loadEntertainmentDomains() {
+    try {
+      const result = await this.browserAPI.storage.local.get(this.storageKey);
+      this.entertainmentDomains = result[this.storageKey] || [];
+      console.log('Loaded entertainment domains:', this.entertainmentDomains);
+    } catch (error) {
+      console.error('Error loading entertainment domains:', error);
+      this.entertainmentDomains = [];
+    }
+  }
+  
+  async saveEntertainmentDomains() {
+    try {
+      await this.browserAPI.storage.local.set({ [this.storageKey]: this.entertainmentDomains });
+      console.log('Saved entertainment domains:', this.entertainmentDomains);
+    } catch (error) {
+      console.error('Error saving entertainment domains:', error);
+    }
+  }
+  
+  extractDomain(url) {
+    try {
+      const urlObj = new URL(url);
+      return urlObj.hostname.replace(/^www\./, '');
+    } catch (error) {
+      return null;
+    }
+  }
+  
+  async updateDomainSuggestions() {
+    try {
+      // Get all currently open tabs
+      const tabs = await this.browserAPI.tabs.query({});
+      
+      // Extract unique domains
+      const domains = new Set();
+      tabs.forEach(tab => {
+        const domain = this.extractDomain(tab.url);
+        if (domain && !this.entertainmentDomains.includes(domain)) {
+          domains.add(domain);
+        }
+      });
+      
+      // Update datalist
+      this.elements.suggestions.innerHTML = Array.from(domains)
+        .sort()
+        .map(domain => `<option value="${domain}">`)
+        .join('');
+        
+    } catch (error) {
+      console.error('Error updating domain suggestions:', error);
+    }
+  }
+  
+  attachEventListeners() {
+    this.elements.addBtn.addEventListener('click', () => this.addEntertainmentDomain());
+    this.elements.input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        this.addEntertainmentDomain();
+      }
+    });
+    
+    // Update suggestions when input is focused
+    this.elements.input.addEventListener('focus', () => this.updateDomainSuggestions());
+  }
+  
+  async addEntertainmentDomain() {
+    const domain = this.elements.input.value.trim().toLowerCase();
+    
+    if (!domain) {
+      return;
+    }
+    
+    // Clean up domain (remove protocol, www, trailing slashes)
+    const cleanDomain = domain.replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\/$/, '');
+    
+    if (this.entertainmentDomains.includes(cleanDomain)) {
+      alert('This domain is already in the entertainment list!');
+      return;
+    }
+    
+    this.entertainmentDomains.push(cleanDomain);
+    await this.saveEntertainmentDomains();
+    this.renderEntertainmentList();
+    this.elements.input.value = '';
+    await this.updateDomainSuggestions();
+  }
+  
+  async removeEntertainmentDomain(domain, immediate = false) {
+    if (immediate) {
+      // Actually remove from storage
+      this.entertainmentDomains = this.entertainmentDomains.filter(d => d !== domain);
+      await this.saveEntertainmentDomains();
+      this.renderEntertainmentList();
+      await this.updateDomainSuggestions();
+    } else {
+      // Start fade-out with undo option
+      const domainItem = this.elements.list.querySelector(`[data-domain="${domain}"]`);
+      if (!domainItem) return;
+      
+      domainItem.classList.add('removing');
+      
+      // Replace remove button with undo button
+      const removeBtn = domainItem.querySelector('.remove-entertainment-btn');
+      const undoBtn = document.createElement('button');
+      undoBtn.className = 'undo-entertainment-btn';
+      undoBtn.textContent = 'Undo';
+      undoBtn.dataset.domain = domain;
+      
+      removeBtn.replaceWith(undoBtn);
+      
+      // Set up undo listener
+      undoBtn.addEventListener('click', () => {
+        this.cancelRemoval(domain);
+      });
+      
+      // Schedule actual removal after 5 seconds
+      const timeoutId = setTimeout(() => {
+        this.removeEntertainmentDomain(domain, true);
+        this.removalTimeouts.delete(domain);
+      }, 5000);
+      
+      this.removalTimeouts.set(domain, timeoutId);
+    }
+  }
+  
+  cancelRemoval(domain) {
+    // Cancel the scheduled removal
+    const timeoutId = this.removalTimeouts.get(domain);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      this.removalTimeouts.delete(domain);
+    }
+    
+    // Re-render to restore normal state
+    this.renderEntertainmentList();
+  }
+  
+  renderEntertainmentList() {
+    if (this.entertainmentDomains.length === 0) {
+      this.elements.list.innerHTML = '<p class="text-muted small">No entertainment domains added yet.</p>';
+      return;
+    }
+    
+    this.elements.list.innerHTML = this.entertainmentDomains
+      .sort()
+      .map(domain => `
+        <div class="entertainment-domain-item" data-domain="${domain}">
+          <button class="remove-entertainment-btn" data-domain="${domain}">×</button>
+          <span class="entertainment-domain-text">${domain}</span>
+        </div>
+      `).join('');
+    
+    // Attach remove button listeners
+    this.elements.list.querySelectorAll('.remove-entertainment-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.removeEntertainmentDomain(btn.dataset.domain, false);
+      });
+    });
+  }
+  
+  getEntertainmentDomains() {
+    return this.entertainmentDomains;
+  }
 }
 
+// Global entertainment domain manager instance
+let entertainmentDomainManager;
 
-// Initialize the page
+// Move entertainment tabs button handler - uses background script
+function initializeEntertainmentMoving() {
+  const moveButton = document.getElementById('move-entertainment');
+  
+  if (!moveButton) {
+    console.error('Move entertainment button not found');
+    return;
+  }
+  
+  console.log('Initializing entertainment moving via background script');
+  
+  moveButton.addEventListener('click', async function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const browserAPI = window.browser || window.chrome;
+    const entertainmentDomains = entertainmentDomainManager.getEntertainmentDomains();
+    
+    if (entertainmentDomains.length === 0) {
+      alert('No entertainment domains in your list! Add some domains first.');
+      return;
+    }
+    
+    console.log('Sending move entertainment request to background script...');
+    moveButton.textContent = 'Moving...';
+    moveButton.disabled = true;
+    
+    try {
+      // Send message to background script which has full permissions
+      const response = await browserAPI.runtime.sendMessage({ 
+        action: 'moveEntertainment',
+        entertainmentDomains: entertainmentDomains
+      });
+      
+      if (response.success) {
+        if (response.tabCount > 0) {
+          console.log(`Successfully moved ${response.tabCount} entertainment tabs`);
+          moveButton.textContent = `Moved ${response.tabCount}!`;
+        } else {
+          console.log('No entertainment tabs found');
+          moveButton.textContent = 'None Found';
+        }
+        setTimeout(() => {
+          moveButton.textContent = 'Move Entertainment URLs to Different Window';
+          moveButton.disabled = false;
+        }, 2000);
+      } else {
+        throw new Error(response.error || 'Unknown error');
+      }
+      
+    } catch (error) {
+      console.error('Failed to move entertainment tabs:', error);
+      moveButton.textContent = 'Failed';
+      setTimeout(() => {
+        moveButton.textContent = 'Move Entertainment URLs to Different Window';
+        moveButton.disabled = false;
+      }, 2000);
+      alert(`Failed to move entertainment tabs: ${error.message}`);
+    }
+  });
+}
+
+// Extract Chordify tabs button handler - uses background script
+function initializeChordifyExtraction() {
+  const extractButton = document.getElementById('extract-chordify');
+  
+  if (!extractButton) {
+    console.error('Extract chordify button not found');
+    return;
+  }
+  
+  console.log('Initializing chordify extraction via background script');
+  
+  extractButton.addEventListener('click', async function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const browserAPI = window.browser || window.chrome;
+    
+    console.log('Sending extract chordify request to background script...');
+    extractButton.textContent = 'Extracting...';
+    extractButton.disabled = true;
+    
+    try {
+      // Send message to background script which has full permissions
+      const response = await browserAPI.runtime.sendMessage({ action: 'extractChordify' });
+      
+      if (response.success) {
+        if (response.tabCount > 0) {
+          console.log(`Successfully extracted ${response.tabCount} Chordify tabs`);
+          extractButton.textContent = `Extracted ${response.tabCount}!`;
+        } else {
+          console.log('No Chordify tabs found');
+          extractButton.textContent = 'None Found';
+        }
+        setTimeout(() => {
+          extractButton.textContent = 'Extract Chordify';
+          extractButton.disabled = false;
+        }, 2000);
+      } else {
+        throw new Error(response.error || 'Unknown error');
+      }
+      
+    } catch (error) {
+      console.error('Failed to extract chordify tabs:', error);
+      extractButton.textContent = 'Failed';
+      setTimeout(() => {
+        extractButton.textContent = 'Extract Chordify';
+        extractButton.disabled = false;
+      }, 2000);
+      alert(`Failed to extract Chordify tabs: ${error.message}`);
+    }
+  });
+}
+
+// Initialize all components when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   updateTime();
   setInterval(updateTime, 1000);
   loadAndRenderLinks();
   new Stopwatch();
+  initializeTabSorting();
+  initializeChordifyExtraction();
+  entertainmentDomainManager = new EntertainmentDomainManager();
+  initializeEntertainmentMoving();
 });

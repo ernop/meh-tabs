@@ -6,8 +6,7 @@
   <link href="bootstrap.min.css" rel="stylesheet">
   <link href="styles.css" rel="stylesheet">
 
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+  <!-- SortableJS is used in todo.js for drag-and-drop todo reordering -->
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </head>
@@ -27,6 +26,25 @@
     </div>
   <div class="mb-4">
     <button class="btn btn-sm btn-outline-dark" id="sort-tabs">Sort Open Tabs</button>
+    <button class="btn btn-sm btn-outline-success ms-2" id="extract-chordify">Extract Chordify</button>
+    <button class="btn btn-sm btn-outline-primary ms-2" id="move-entertainment">Move Entertainment URLs to Different Window</button>
+  </div>
+  
+  <div class="card mb-4">
+    <div class="card-header">
+      <h5 class="mb-0">Entertainment Domain List</h5>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <label for="add-entertainment-domain" class="form-label">Add Entertainment Domain</label>
+        <div class="input-group">
+          <input type="text" id="add-entertainment-domain" class="form-control" placeholder="Type or select domain..." autocomplete="off" list="domain-suggestions">
+          <button class="btn btn-primary" id="add-entertainment-btn">Add</button>
+        </div>
+        <datalist id="domain-suggestions"></datalist>
+      </div>
+      <div id="entertainment-domains-list" class="entertainment-list"></div>
+    </div>
   </div>
     <div id="categories-container"></div>
   </div>

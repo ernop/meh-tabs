@@ -81,12 +81,18 @@ async function sortTabsAlphabetically() {
     });
     
     // Move each tab to its new position
+    // Process in batches to avoid race conditions
     for (let targetIndex = 0; targetIndex < sortedTabs.length; targetIndex++) {
       const tab = sortedTabs[targetIndex];
       if (tab.index !== targetIndex) {
-        await browserAPI.tabs.move(tab.id, { index: targetIndex });
-        // Small delay to let browser process the move
-        await new Promise(resolve => setTimeout(resolve, 10));
+        try {
+          await browserAPI.tabs.move(tab.id, { index: targetIndex });
+          // Small delay to let browser process the move (increased from 10ms for stability)
+          await new Promise(resolve => setTimeout(resolve, 15));
+        } catch (error) {
+          console.error(`Error moving tab ${tab.id} to index ${targetIndex}:`, error);
+          // Continue with other tabs even if one fails
+        }
       }
     }
     
@@ -95,6 +101,149 @@ async function sortTabsAlphabetically() {
     
   } catch (error) {
     console.error('Error sorting tabs:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Function to move entertainment tabs to a new window
+async function moveEntertainmentTabs(entertainmentDomains) {
+  try {
+    // Get all tabs from all windows
+    const allTabs = await browserAPI.tabs.query({});
+    
+    // Helper function to extract domain from URL
+    const extractDomain = (url) => {
+      try {
+        const urlObj = new URL(url);
+        return urlObj.hostname.replace(/^www\./, '');
+      } catch (error) {
+        return null;
+      }
+    };
+    
+    // Filter for entertainment tabs
+    const entertainmentTabs = allTabs.filter(tab => {
+      const domain = extractDomain(tab.url);
+      if (!domain) return false;
+      
+      return entertainmentDomains.some(entertainmentDomain => {
+        // Exact match
+        if (domain === entertainmentDomain) return true;
+        // Subdomain match (*.entertainmentDomain)
+        if (domain.endsWith('.' + entertainmentDomain)) return true;
+        return false;
+      });
+    });
+    
+    console.log(`Found ${entertainmentTabs.length} entertainment tabs matching domains:`, entertainmentDomains);
+    
+    if (entertainmentTabs.length === 0) {
+      return { success: true, tabCount: 0 };
+    }
+    
+    // Sort entertainment tabs alphabetically by URL
+    entertainmentTabs.sort((a, b) => {
+      const urlA = (a.url || '').toLowerCase();
+      const urlB = (b.url || '').toLowerCase();
+      return urlA.localeCompare(urlB);
+    });
+    
+    // Create a new window with the first entertainment tab
+    const newWindow = await browserAPI.windows.create({
+      tabId: entertainmentTabs[0].id
+    });
+    
+    console.log(`Created new window with ID ${newWindow.id} for entertainment tabs`);
+    
+    // Move the rest of the entertainment tabs to the new window
+    for (let i = 1; i < entertainmentTabs.length; i++) {
+      try {
+        await browserAPI.tabs.move(entertainmentTabs[i].id, {
+          windowId: newWindow.id,
+          index: -1  // -1 means append to the end
+        });
+        // Small delay to avoid race conditions
+        await new Promise(resolve => setTimeout(resolve, 15));
+      } catch (error) {
+        console.error(`Error moving tab ${entertainmentTabs[i].id}:`, error);
+        // Continue with other tabs even if one fails
+      }
+    }
+    
+    console.log('Entertainment moving and sorting complete!');
+    return { success: true, tabCount: entertainmentTabs.length };
+    
+  } catch (error) {
+    console.error('Error moving entertainment tabs:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Function to extract all Chordify tabs to a new window
+async function extractChordifyTabs() {
+  try {
+    // Get all tabs from all windows
+    const allTabs = await browserAPI.tabs.query({});
+    
+    // Helper function to extract domain from URL
+    const extractDomain = (url) => {
+      try {
+        const urlObj = new URL(url);
+        return urlObj.hostname.replace(/^www\./, '');
+      } catch (error) {
+        return null;
+      }
+    };
+    
+    // Filter for Chordify tabs with precise domain matching
+    const chordifyTabs = allTabs.filter(tab => {
+      const domain = extractDomain(tab.url);
+      if (!domain) return false;
+      
+      // Match chordify.net and *.chordify.net
+      return domain === 'chordify.net' || domain.endsWith('.chordify.net');
+    });
+    
+    console.log(`Found ${chordifyTabs.length} Chordify tabs`);
+    
+    if (chordifyTabs.length === 0) {
+      return { success: true, tabCount: 0 };
+    }
+    
+    // Sort Chordify tabs alphabetically by URL
+    chordifyTabs.sort((a, b) => {
+      const urlA = (a.url || '').toLowerCase();
+      const urlB = (b.url || '').toLowerCase();
+      return urlA.localeCompare(urlB);
+    });
+    
+    // Create a new window with the first Chordify tab
+    const newWindow = await browserAPI.windows.create({
+      tabId: chordifyTabs[0].id
+    });
+    
+    console.log(`Created new window with ID ${newWindow.id}`);
+    
+    // Move the rest of the Chordify tabs to the new window in sorted order
+    for (let i = 1; i < chordifyTabs.length; i++) {
+      try {
+        await browserAPI.tabs.move(chordifyTabs[i].id, {
+          windowId: newWindow.id,
+          index: -1  // -1 means append to the end
+        });
+        // Small delay to avoid race conditions
+        await new Promise(resolve => setTimeout(resolve, 15));
+      } catch (error) {
+        console.error(`Error moving tab ${chordifyTabs[i].id}:`, error);
+        // Continue with other tabs even if one fails
+      }
+    }
+    
+    console.log('Chordify extraction and sorting complete!');
+    return { success: true, tabCount: chordifyTabs.length };
+    
+  } catch (error) {
+    console.error('Error extracting Chordify tabs:', error);
     return { success: false, error: error.message };
   }
 }
@@ -108,6 +257,38 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
     
     // Call the sort function and send response back
     sortTabsAlphabetically().then(result => {
+      console.log('Sending result back:', result);
+      sendResponse(result);
+    }).catch(error => {
+      console.error('Error in message handler:', error);
+      sendResponse({ success: false, error: error.message });
+    });
+    
+    // IMPORTANT: Return true to indicate we'll send a response asynchronously
+    return true;
+  }
+  
+  if (request.action === 'extractChordify') {
+    console.log('Extract Chordify action requested');
+    
+    // Call the extract function and send response back
+    extractChordifyTabs().then(result => {
+      console.log('Sending result back:', result);
+      sendResponse(result);
+    }).catch(error => {
+      console.error('Error in message handler:', error);
+      sendResponse({ success: false, error: error.message });
+    });
+    
+    // IMPORTANT: Return true to indicate we'll send a response asynchronously
+    return true;
+  }
+  
+  if (request.action === 'moveEntertainment') {
+    console.log('Move entertainment action requested with domains:', request.entertainmentDomains);
+    
+    // Call the move entertainment function and send response back
+    moveEntertainmentTabs(request.entertainmentDomains).then(result => {
       console.log('Sending result back:', result);
       sendResponse(result);
     }).catch(error => {
