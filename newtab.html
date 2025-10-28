@@ -14,22 +14,24 @@
 
 <body>
   <div class="container py-4 main-container">
-    <div class="display-4 text-primary mb-4">Hello, You!</div>
     <div class="display-3 mb-4" id="time"></div>
-    <div class="stopwatch-container mb-4">
-      <div id="stopwatch" class="display-4">
-        <button class="btn btn-outline-primary" id="start-stopwatch">Start Stopwatch</button>
+    <div class="display-4 text-primary mb-4">Hello, You!</div>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <button class="btn btn-sm btn-outline-dark" id="sort-tabs">Sort Open Tabs</button>
+        <button class="btn btn-sm btn-outline-success ms-2" id="extract-chordify">Extract Chordify</button>
+        <button class="btn btn-sm btn-outline-primary ms-2" id="move-entertainment">Move Entertainment URLs to Different Window</button>
       </div>
-      <div id="stopwatch-controls" class="mt-2" style="display: none;">
-        <button class="btn btn-primary btn-sm" id="pause-stopwatch">Pause</button>
-        <button class="btn btn-secondary btn-sm" id="stop-stopwatch">Stop</button>
+      <div class="stopwatch-container">
+        <div id="stopwatch" class="d-inline-block">
+          <button class="btn btn-outline-primary" id="start-stopwatch">Start Stopwatch</button>
+        </div>
+        <div id="stopwatch-controls" class="d-inline-block ms-2" style="display: none;">
+          <button class="btn btn-primary btn-sm" id="pause-stopwatch">Pause</button>
+          <button class="btn btn-secondary btn-sm" id="stop-stopwatch">Stop</button>
+        </div>
       </div>
     </div>
-  <div class="mb-4">
-    <button class="btn btn-sm btn-outline-dark" id="sort-tabs">Sort Open Tabs</button>
-    <button class="btn btn-sm btn-outline-success ms-2" id="extract-chordify">Extract Chordify</button>
-    <button class="btn btn-sm btn-outline-primary ms-2" id="move-entertainment">Move Entertainment URLs to Different Window</button>
-  </div>
   
   <div class="card mb-4">
     <div class="card-header">

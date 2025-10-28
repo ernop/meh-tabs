@@ -170,6 +170,15 @@ async function moveEntertainmentTabs(entertainmentDomains) {
       }
     }
     
+    // Minimize the new entertainment window
+    try {
+      await browserAPI.windows.update(newWindow.id, { state: 'minimized' });
+      console.log(`Minimized entertainment window ${newWindow.id}`);
+    } catch (error) {
+      console.error(`Error minimizing window ${newWindow.id}:`, error);
+      // Don't fail the whole operation if minimizing fails
+    }
+    
     console.log('Entertainment moving and sorting complete!');
     return { success: true, tabCount: entertainmentTabs.length };
     
