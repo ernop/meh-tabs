@@ -77,6 +77,66 @@ Before installing the extension, set up your personal configuration:
    ```
    This creates a `.zip` file in the `web-ext-artifacts` folder.
 
+---
+
+## Deploying Updates to AMO (Mozilla Add-ons)
+
+This extension is published as an **unlisted** add-on on AMO. Updates are deployed manually.
+
+### Building a New Version
+
+1. **Bump the version** in `manifest.json` (AMO requires strictly increasing versions)
+
+2. **Build the upload zip:**
+   ```powershell
+   cd D:\proj\mynewtab
+   $manifest = Get-Content "manifest.json" | ConvertFrom-Json
+   $version = $manifest.version
+   $zipPath = "dist\mynewtab-$version.zip"
+   $files = @(
+     "manifest.json", "newtab.html", "newtab.js", "background.js", "todo.js",
+     "styles.css", "bootstrap.min.css", "bootstrap.bundle.min.js", 
+     "Sortable.min.js", "links.json", "personal-config.json",
+     "icons\\icon-32.png", "icons\\icon-48.png", "icons\\icon-96.png", "icons\\icon-128.png"
+   )
+   New-Item -ItemType Directory -Path "dist" -Force | Out-Null
+   Remove-Item $zipPath -ErrorAction SilentlyContinue
+   Compress-Archive -Path $files -DestinationPath $zipPath
+   Write-Host "Built: $zipPath"
+   ```
+
+3. **Upload to AMO:**
+   - Go to: https://addons.mozilla.org/en-US/developers/addon/afbf11016ec54c478061/versions/
+   - Click "Upload a New Version"
+   - Select `dist\mynewtab-X.X.X.zip`
+   - Wait for validation (usually a few minutes)
+   - Submit
+
+4. **Install the update in Firefox:**
+   - Download the signed XPI from the AMO versions page
+   - In Firefox: `about:addons` > gear icon > "Install Add-on From File"
+   - Select the downloaded XPI
+
+### AMO Validation Requirements
+
+AMO enforces these rules:
+
+- **No remote scripts**: All JS must be bundled locally (Sortable.min.js, bootstrap.bundle.min.js)
+- **No innerHTML**: Use DOM methods (createElement, appendChild, textContent)
+- **data_collection_permissions**: Required in manifest under `browser_specific_settings.gecko`
+  - If you collect/transmit **no data**, Firefox requires `required: ["none"]` (empty arrays fail validation)
+- **Version must increase**: Cannot resubmit an existing version number
+
+### Alternative: Auto-Sign with web-ext
+
+If you have AMO API credentials in `amo-credentials.local`:
+```powershell
+.\build-and-sign.ps1
+```
+This auto-submits, waits for signing, and downloads the signed XPI.
+
+---
+
 ## Features
 
 Your custom new tab extension includes:

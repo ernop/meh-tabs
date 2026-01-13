@@ -1,11 +1,21 @@
 {
   "manifest_version": 2,
   "name": "Custom New Tab",
-  "version": "1.0",
+  "version": "1.0.15",
   "description": "Replaces the new tab page with a custom page featuring quick links, todo list, and tab management",
-  "applications": {
+  "icons": {
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-128.png"
+  },
+  "browser_specific_settings": {
     "gecko": {
-      "id": "custom-new-tab@yourname.com"
+      "id": "custom-new-tab@yourname.com",
+      "data_collection_permissions": {
+        "required": ["none"],
+        "optional": []
+      }
     }
   },
   "chrome_url_overrides": {
@@ -20,13 +30,19 @@
     "persistent": false
   },
   "browser_action": {
-    "default_title": "Sort tabs alphabetically"
+    "default_title": "Sort tabs alphabetically",
+    "default_icon": {
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
   },
   "web_accessible_resources": [
     "links.json",
     "personal-config.json",
     "styles.css",
     "todo.js",
-    "bootstrap.min.css"
+    "bootstrap.min.css",
+    "Sortable.min.js",
+    "bootstrap.bundle.min.js"
   ]
 }

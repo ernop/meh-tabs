@@ -1,0 +1,12 @@
+{
+    "addons":  {
+                   "custom-new-tab@yourname.com":  {
+                                                       "updates":  [
+                                                                       {
+                                                                           "version":  "1.0.15",
+                                                                           "update_link":  "http://localhost:8730/afbf11016ec54c478061-1.0.15.xpi"
+                                                                       }
+                                                                   ]
+                                                   }
+               }
+}

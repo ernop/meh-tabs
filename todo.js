@@ -177,9 +177,15 @@ class TodoList {
 
         const element = document.querySelector(`[data-id="${id}"] .todo-text`);
         const currentText = todo.text;
-        element.innerHTML = `<input type="text" class="form-control edit-todo" value="${currentText}">`;
+        
+        // Create input using DOM methods (AMO-safe)
+        element.textContent = '';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control edit-todo';
+        input.value = currentText;
+        element.appendChild(input);
 
-        const input = element.querySelector('input');
         input.focus();
 
         input.addEventListener('blur', () => {
@@ -243,26 +249,54 @@ class TodoList {
             .filter(t => t.archived)
             .sort((a, b) => a.order - b.order);
 
-        this.elements.activeList.innerHTML = activeTodos.map(todo => this.renderTodoItem(todo)).join('');
-        this.elements.archiveList.innerHTML = archivedTodos.map(todo => this.renderTodoItem(todo)).join('');
+        // Render using DOM methods (AMO-safe)
+        this.elements.activeList.textContent = '';
+        activeTodos.forEach(todo => {
+            this.elements.activeList.appendChild(this.renderTodoItemElement(todo));
+        });
+        
+        this.elements.archiveList.textContent = '';
+        archivedTodos.forEach(todo => {
+            this.elements.archiveList.appendChild(this.renderTodoItemElement(todo));
+        });
     }
 
-    renderTodoItem(todo) {
-        return `
-        <div class="todo-item ${todo.completed ? 'completed' : ''}" data-id="${todo.id}">
-          <input type="checkbox" class="form-check-input complete-btn" ${todo.completed ? 'checked' : ''}>
-          <span class="todo-text">${todo.text}</span>
-          <span class="todo-date">
-            ${this.formatDate(todo.createdAt)}
-            ${todo.archivedAt ? `(Archived: ${this.formatDate(todo.archivedAt)})` : ''}
-          </span>
-          <div class="todo-actions">
-            <button class="btn btn-sm btn-outline-secondary archive-btn">
-              ${todo.archived ? 'Unarchive' : 'Archive'}
-            </button>
-          </div>
-        </div>
-      `;
+    renderTodoItemElement(todo) {
+        const item = document.createElement('div');
+        item.className = 'todo-item' + (todo.completed ? ' completed' : '');
+        item.dataset.id = todo.id;
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'form-check-input complete-btn';
+        checkbox.checked = todo.completed;
+        
+        const textSpan = document.createElement('span');
+        textSpan.className = 'todo-text';
+        textSpan.textContent = todo.text;
+        
+        const dateSpan = document.createElement('span');
+        dateSpan.className = 'todo-date';
+        let dateText = this.formatDate(todo.createdAt);
+        if (todo.archivedAt) {
+            dateText += ` (Archived: ${this.formatDate(todo.archivedAt)})`;
+        }
+        dateSpan.textContent = dateText;
+        
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'todo-actions';
+        
+        const archiveBtn = document.createElement('button');
+        archiveBtn.className = 'btn btn-sm btn-outline-secondary archive-btn';
+        archiveBtn.textContent = todo.archived ? 'Unarchive' : 'Archive';
+        actionsDiv.appendChild(archiveBtn);
+        
+        item.appendChild(checkbox);
+        item.appendChild(textSpan);
+        item.appendChild(dateSpan);
+        item.appendChild(actionsDiv);
+        
+        return item;
     }
 
     initializeTabs() {
