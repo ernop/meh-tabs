@@ -10,26 +10,37 @@ Replace your default Firefox new tab page with a custom implementation featuring
 
 ## Installation
 
-1. **Clone or download this repository**
+### Signed Extension (Recommended)
+The extension is signed and unlisted on AMO. Download the XPI from your developer dashboard:
+1. Go to https://addons.mozilla.org/developers/addons
+2. Click "Custom New Tab" > "Manage Status & Versions"
+3. Download the latest signed XPI
+4. In Firefox: `about:addons` > gear icon > "Install Add-on From File"
 
-2. **Set up your personal configuration** (first-time setup):
-   ```bash
-   # Copy the example files to create your personal config
-   cp links.json.example personal-config.json
-   # OR for Chrome extension directory:
-   cp chrome-extension/links.json.example chrome-extension/personal-config.json
-   ```
+### Personal Configuration
+1. Copy `links.json.example` to `personal-config.json`
+2. Edit with your links and categories
+3. The file is gitignored (won't be committed)
 
-3. **Customize your links**:
-   - Edit `personal-config.json` with your favorite links, categories, and personal URLs
-   - The file is gitignored so your personal data won't be committed
-   - See the example files for the structure
+## Updating the Extension
 
-4. **Load the extension in Firefox**:
-   - Open Firefox and navigate to `about:debugging`
-   - Click "This Firefox"
-   - Click "Load Temporary Add-on"
-   - Navigate to the extension directory and select `manifest.json`
+After making code changes:
+```powershell
+cd D:\proj\mybrowser\browser\mynewtab
+.\build-and-sign.ps1 -BumpVersion patch   # 1.0.1 -> 1.0.2
+```
+Then in Firefox: `about:addons` > gear icon > "Check for Updates"
+
+### Build Script Options
+```powershell
+.\build-and-sign.ps1                      # Build current version
+.\build-and-sign.ps1 -BumpVersion patch   # Bump patch (1.0.0 -> 1.0.1)
+.\build-and-sign.ps1 -BumpVersion minor   # Bump minor (1.0.0 -> 1.1.0)
+```
+
+### Requirements
+- `npm install -g web-ext`
+- `amo-credentials.local` file with AMO API keys (gitignored)
 
 ## Configuration
 

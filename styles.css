@@ -1,10 +1,12 @@
 /* Global Button Styles - Standardized */
-button, .btn {
+button,
+.btn {
     transition: none !important;
     color: #000 !important;
 }
 
-button:hover, .btn:hover {
+button:hover,
+.btn:hover {
     transform: none !important;
 }
 
@@ -19,7 +21,8 @@ button:hover, .btn:hover {
     color: #000 !important;
 }
 
-#pause-stopwatch, #stop-stopwatch {
+#pause-stopwatch,
+#stop-stopwatch {
     background-color: transparent !important;
 }
 
@@ -273,4 +276,111 @@ button:hover, .btn:hover {
 .category-header .h4 {
     margin-bottom: 0;
     font-size: 1.1rem;
+}
+
+/* ============================================================================
+   EDIT MODE STYLES
+   ============================================================================ */
+
+/* Hide edit-only elements by default */
+.edit-only {
+    display: none !important;
+}
+
+/* Show edit-only elements when body has edit-mode class */
+body.edit-mode .edit-only {
+    display: inline-flex !important;
+}
+
+body.edit-mode .add-category-wrapper {
+    display: block !important;
+    margin-top: 1rem;
+}
+
+/* Link wrapper for positioning remove button */
+.link-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* Remove button for links */
+.link-remove-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 1px solid #dc3545;
+    border-radius: 50%;
+    background: #fff;
+    color: #dc3545;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+}
+
+.link-remove-btn:hover {
+    background: #dc3545 !important;
+    color: #fff !important;
+}
+
+/* Add link button */
+.link-add-btn {
+    padding: 0.25rem 0.5rem;
+    border: 1px dashed #198754;
+    border-radius: 4px;
+    background: transparent;
+    color: #198754;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.link-add-btn:hover {
+    background: #d1e7dd !important;
+    border-style: solid;
+}
+
+/* Category remove button */
+.category-remove-btn {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: 1px solid #dc3545;
+    border-radius: 50%;
+    background: transparent;
+    color: #dc3545;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+.category-remove-btn:hover {
+    background: #dc3545 !important;
+    color: #fff !important;
+}
+
+/* Edit mode visual indicator */
+body.edit-mode {
+    background: linear-gradient(135deg, #fff9e6 0%, #fff 100%);
+}
+
+body.edit-mode .category-section {
+    border: 1px dashed #ffc107;
+    border-radius: 8px;
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Export config textarea */
+.config-export-textarea {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.85rem;
+    background: #f8f9fa;
 }

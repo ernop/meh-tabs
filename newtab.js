@@ -1,5 +1,260 @@
 const browser = window.browser || window.chrome;
 
+function setAppVersion() {
+  const versionEl = document.getElementById('app-version');
+  if (!versionEl) return;
+
+  try {
+    const manifest =
+      browser &&
+      browser.runtime &&
+      typeof browser.runtime.getManifest === 'function'
+        ? browser.runtime.getManifest()
+        : null;
+
+    versionEl.textContent = manifest && manifest.version ? `(v${manifest.version})` : '';
+  } catch (e) {
+    versionEl.textContent = '';
+  }
+}
+
+// ============================================================================
+// CONFIG MANAGER - Handles localStorage-based config with edit capabilities
+// ============================================================================
+class ConfigManager {
+  constructor() {
+    this.browserAPI = window.browser || window.chrome;
+    this.storageKey = 'pageConfig';
+    this.config = null;
+    this.editMode = false;
+    this.onConfigChange = null; // callback when config changes
+  }
+
+  async init() {
+    await this.loadConfig();
+    this.setupEditToggle();
+    this.setupExportButton();
+  }
+
+  async loadConfig() {
+    try {
+      // Try localStorage first (user customizations take priority)
+      const result = await this.browserAPI.storage.local.get(this.storageKey);
+      if (result[this.storageKey]) {
+        this.config = result[this.storageKey];
+        console.log('Loaded config from localStorage');
+        return;
+      }
+    } catch (e) {
+      console.log('localStorage not available, falling back to file');
+    }
+
+    // Fall back to file-based config
+    try {
+      const personalConfigUrl = this.browserAPI.runtime.getURL('personal-config.json');
+      const response = await fetch(personalConfigUrl);
+      if (response.ok) {
+        this.config = await response.json();
+        console.log('Loaded personal-config.json');
+        return;
+      }
+    } catch (e) {
+      console.log('personal-config.json not found');
+    }
+
+    try {
+      const linksUrl = this.browserAPI.runtime.getURL('links.json');
+      const response = await fetch(linksUrl);
+      this.config = await response.json();
+      console.log('Loaded links.json');
+    } catch (e) {
+      console.error('Failed to load any config');
+      this.config = { categories: [] };
+    }
+  }
+
+  async saveConfig() {
+    try {
+      await this.browserAPI.storage.local.set({ [this.storageKey]: this.config });
+      console.log('Config saved to localStorage');
+    } catch (e) {
+      console.error('Failed to save config:', e);
+    }
+  }
+
+  getCategories() {
+    return (this.config.categories || []).sort((a, b) => a.order - b.order);
+  }
+
+  // Category operations
+  addCategory(name, emoji = '') {
+    const maxOrder = Math.max(0, ...this.config.categories.map(c => c.order || 0));
+    this.config.categories.push({
+      name,
+      emoji,
+      order: maxOrder + 1,
+      links: []
+    });
+    this.saveConfig();
+    if (this.onConfigChange) this.onConfigChange();
+  }
+
+  removeCategory(categoryName) {
+    this.config.categories = this.config.categories.filter(c => c.name !== categoryName);
+    this.saveConfig();
+    if (this.onConfigChange) this.onConfigChange();
+  }
+
+  renameCategory(oldName, newName) {
+    const cat = this.config.categories.find(c => c.name === oldName);
+    if (cat) {
+      cat.name = newName;
+      cat.links.forEach(link => link.category = newName);
+      this.saveConfig();
+      if (this.onConfigChange) this.onConfigChange();
+    }
+  }
+
+  // Link operations
+  addLink(categoryName, linkName, href, emoji = '') {
+    const cat = this.config.categories.find(c => c.name === categoryName);
+    if (cat) {
+      cat.links.push({ name: linkName, href, category: categoryName, emoji });
+      this.saveConfig();
+      if (this.onConfigChange) this.onConfigChange();
+    }
+  }
+
+  removeLink(categoryName, linkName) {
+    const cat = this.config.categories.find(c => c.name === categoryName);
+    if (cat) {
+      cat.links = cat.links.filter(l => l.name !== linkName);
+      this.saveConfig();
+      if (this.onConfigChange) this.onConfigChange();
+    }
+  }
+
+  // Edit mode
+  setupEditToggle() {
+    const editBtn = document.getElementById('edit-config-btn');
+    if (editBtn) {
+      editBtn.addEventListener('click', () => this.toggleEditMode());
+    }
+  }
+
+  toggleEditMode() {
+    this.editMode = !this.editMode;
+    document.body.classList.toggle('edit-mode', this.editMode);
+    const editBtn = document.getElementById('edit-config-btn');
+    if (editBtn) {
+      editBtn.textContent = this.editMode ? 'Done Editing' : 'Edit';
+      editBtn.classList.toggle('btn-warning', this.editMode);
+      editBtn.classList.toggle('btn-outline-secondary', !this.editMode);
+    }
+    if (this.onConfigChange) this.onConfigChange();
+  }
+
+  // Export
+  setupExportButton() {
+    const exportBtn = document.getElementById('export-config-btn');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => this.showExportModal());
+    }
+  }
+
+  getExportData() {
+    // Combine config with entertainment domains for full export
+    const entertainmentDomains = entertainmentDomainManager 
+      ? entertainmentDomainManager.getEntertainmentDomains() 
+      : [];
+    
+    return {
+      ...this.config,
+      entertainmentDomains
+    };
+  }
+
+  showExportModal() {
+    const modal = document.getElementById('export-config-modal');
+    const textarea = document.getElementById('export-config-json');
+    if (modal && textarea) {
+      textarea.value = JSON.stringify(this.getExportData(), null, 2);
+      const bsModal = new bootstrap.Modal(modal);
+      bsModal.show();
+      
+      // Setup copy button
+      const copyBtn = document.getElementById('copy-config-btn');
+      if (copyBtn) {
+        copyBtn.onclick = async () => {
+          try {
+            await navigator.clipboard.writeText(textarea.value);
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => copyBtn.textContent = 'Copy to Clipboard', 2000);
+          } catch (e) {
+            textarea.select();
+            document.execCommand('copy');
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => copyBtn.textContent = 'Copy to Clipboard', 2000);
+          }
+        };
+      }
+      
+      // Setup import button
+      const importBtn = document.getElementById('import-config-btn');
+      if (importBtn) {
+        importBtn.onclick = async () => {
+          try {
+            const text = await navigator.clipboard.readText();
+            if (text && confirm('Import configuration from clipboard? This will overwrite your current settings.')) {
+              const success = await this.importConfig(text);
+              if (success) {
+                bsModal.hide();
+                alert('Configuration imported successfully!');
+              }
+            }
+          } catch (e) {
+            const text = prompt('Paste your JSON configuration:');
+            if (text) {
+              const success = await this.importConfig(text);
+              if (success) {
+                bsModal.hide();
+                alert('Configuration imported successfully!');
+              }
+            }
+          }
+        };
+      }
+    }
+  }
+
+  async importConfig(jsonString) {
+    try {
+      const data = JSON.parse(jsonString);
+      if (data.categories) {
+        this.config = { categories: data.categories, megaPriority: data.megaPriority || [] };
+        await this.saveConfig();
+        
+        // Also import entertainment domains if present
+        if (data.entertainmentDomains && entertainmentDomainManager) {
+          entertainmentDomainManager.entertainmentDomains = data.entertainmentDomains;
+          await entertainmentDomainManager.saveEntertainmentDomains();
+          entertainmentDomainManager.renderEntertainmentList();
+        }
+        
+        if (this.onConfigChange) this.onConfigChange();
+        return true;
+      }
+    } catch (e) {
+      console.error('Failed to import config:', e);
+      alert('Invalid JSON format');
+    }
+    return false;
+  }
+}
+
+// Global config manager instance
+let configManager;
+
 // Time update function
 function updateTime() {
   const timeElement = document.getElementById('time');
@@ -14,56 +269,171 @@ function updateTime() {
   const month = now.toLocaleDateString('en-US', { month: 'short' });
   const date = now.getDate();
 
-  timeElement.innerHTML = `
-        ${time}
-        <span class="time-date">
-            ${day} ${month} ${date}
-        </span>
-    `;
+  // Clear and rebuild using DOM methods
+  timeElement.textContent = '';
+  timeElement.appendChild(document.createTextNode(time + ' '));
+  const dateSpan = document.createElement('span');
+  dateSpan.className = 'time-date';
+  dateSpan.textContent = `${day} ${month} ${date}`;
+  timeElement.appendChild(dateSpan);
 }
 
-// Links rendering functions
-function createLinkCard(link) {
-  return `<a href="${link.href}" class="link-btn"><i class="${link.emoji}"></i> ${link.name}</a>`;
+// Links rendering functions using DOM methods (AMO-safe)
+function createLinkCardElement(link, categoryName) {
+  const wrapper = document.createElement('span');
+  wrapper.className = 'link-wrapper';
+  
+  const a = document.createElement('a');
+  a.href = link.href;
+  a.className = 'link-btn';
+  
+  if (link.emoji) {
+    const icon = document.createElement('i');
+    icon.className = link.emoji;
+    a.appendChild(icon);
+    a.appendChild(document.createTextNode(' '));
+  }
+  a.appendChild(document.createTextNode(link.name));
+  wrapper.appendChild(a);
+  
+  // Edit mode: remove button
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'link-remove-btn edit-only';
+  removeBtn.textContent = '×';
+  removeBtn.title = 'Remove link';
+  removeBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (confirm(`Remove "${link.name}"?`)) {
+      configManager.removeLink(categoryName, link.name);
+    }
+  });
+  wrapper.appendChild(removeBtn);
+  
+  return wrapper;
 }
 
-function createCategorySection(category) {
-  const linksHtml = category.links.map(createLinkCard).join('');
-  return `<div class="category-section"><div class="category-header"><h2 class="h4"><i class="${category.emoji} me-2"></i>${category.name}</h2></div><div class="links-container">${linksHtml}</div></div>`;
+function createAddLinkButton(categoryName) {
+  const btn = document.createElement('button');
+  btn.className = 'link-add-btn edit-only';
+  btn.textContent = '+ Add Link';
+  btn.addEventListener('click', () => {
+    showAddLinkDialog(categoryName);
+  });
+  return btn;
+}
+
+function showAddLinkDialog(categoryName) {
+  const name = prompt('Link name:');
+  if (!name) return;
+  const href = prompt('URL:', 'https://');
+  if (!href) return;
+  const emoji = prompt('Emoji class (optional, e.g. "fa-solid fa-star"):', '');
+  configManager.addLink(categoryName, name, href, emoji || '');
+}
+
+function createCategorySectionElement(category) {
+  const section = document.createElement('div');
+  section.className = 'category-section';
+  section.dataset.category = category.name;
+  
+  const header = document.createElement('div');
+  header.className = 'category-header';
+  
+  const h2 = document.createElement('h2');
+  h2.className = 'h4';
+  
+  if (category.emoji) {
+    const icon = document.createElement('i');
+    icon.className = category.emoji + ' me-2';
+    h2.appendChild(icon);
+  }
+  h2.appendChild(document.createTextNode(category.name));
+  
+  // Edit mode: remove category button
+  const removeCatBtn = document.createElement('button');
+  removeCatBtn.className = 'category-remove-btn edit-only ms-2';
+  removeCatBtn.textContent = '×';
+  removeCatBtn.title = 'Remove category';
+  removeCatBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (confirm(`Remove category "${category.name}" and all its links?`)) {
+      configManager.removeCategory(category.name);
+    }
+  });
+  h2.appendChild(removeCatBtn);
+  
+  header.appendChild(h2);
+  
+  const linksContainer = document.createElement('div');
+  linksContainer.className = 'links-container';
+  category.links.forEach(link => {
+    linksContainer.appendChild(createLinkCardElement(link, category.name));
+  });
+  
+  // Edit mode: add link button
+  linksContainer.appendChild(createAddLinkButton(category.name));
+  
+  section.appendChild(header);
+  section.appendChild(linksContainer);
+  
+  return section;
+}
+
+function createAddCategoryButton() {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'add-category-wrapper edit-only';
+  
+  const btn = document.createElement('button');
+  btn.className = 'btn btn-outline-secondary btn-sm';
+  btn.textContent = '+ Add Category';
+  btn.addEventListener('click', () => {
+    const name = prompt('Category name:');
+    if (!name) return;
+    const emoji = prompt('Emoji class (optional):', '');
+    configManager.addCategory(name, emoji || '');
+  });
+  
+  wrapper.appendChild(btn);
+  return wrapper;
 }
 
 // Load and render links
-async function loadAndRenderLinks() {
-  try {
-    let data;
-    
-    // Try to load personal config first
-    try {
-      const personalConfigUrl = browser.runtime.getURL('personal-config.json');
-      const personalResponse = await fetch(personalConfigUrl);
-      if (personalResponse.ok) {
-        data = await personalResponse.json();
-        console.log('Loaded personal configuration');
-      }
-    } catch (error) {
-      console.log('Personal config not found, loading default links');
-    }
-    
-    // Fall back to default links.json if personal config not available
-    if (!data) {
-      const linksUrl = browser.runtime.getURL('links.json');
-      const response = await fetch(linksUrl);
-      data = await response.json();
-      console.log('Loaded default configuration');
-    }
+function renderLinks() {
+  const container = document.getElementById('categories-container');
+  if (!container || !configManager) return;
+  
+  const categories = configManager.getCategories();
+  
+  // Clear and rebuild using DOM methods
+  container.textContent = '';
+  categories.forEach(category => {
+    container.appendChild(createCategorySectionElement(category));
+  });
+  
+  // Add "Add Category" button for edit mode
+  container.appendChild(createAddCategoryButton());
+}
 
-    const sortedCategories = data.categories.sort((a, b) => a.order - b.order);
-    const categoriesHtml = sortedCategories.map(createCategorySection).join('');
-    document.getElementById('categories-container').innerHTML = categoriesHtml;
+async function loadAndRenderLinks() {
+  const container = document.getElementById('categories-container');
+  
+  try {
+    // Initialize config manager if not done
+    if (!configManager) {
+      configManager = new ConfigManager();
+      await configManager.init();
+      configManager.onConfigChange = renderLinks;
+    }
+    
+    renderLinks();
   } catch (error) {
     console.error('Error loading links:', error);
-    document.getElementById('categories-container').innerHTML =
-      '<div class="alert alert-danger">Error loading links. Please check the console for details.</div>';
+    container.textContent = '';
+    const alertEl = document.createElement('div');
+    alertEl.className = 'alert alert-danger';
+    alertEl.textContent = 'Error loading links. Please check the console for details.';
+    container.appendChild(alertEl);
   }
 }
 
@@ -103,8 +473,8 @@ class Stopwatch {
       this.interval = setInterval(() => this.updateDisplay(), 100);
       this.isRunning = true;
       this.elements.display.classList.add('running');
-      this.elements.controls.style.display = 'flex';
-      this.elements.startBtn.style.display = 'none';
+      this.elements.controls.classList.remove('hidden');
+      this.elements.startBtn.classList.add('hidden');
     }
   }
 
@@ -125,9 +495,17 @@ class Stopwatch {
     this.isRunning = false;
     this.elapsedTime = 0;
     this.elements.display.classList.remove('running');
-    this.elements.display.innerHTML = '<button class="btn btn-outline-primary" id="start-stopwatch">Start Stopwatch</button>';
-    this.elements.controls.style.display = 'none';
-    this.elements.startBtn = document.getElementById('start-stopwatch');
+    
+    // Rebuild button using DOM methods (AMO-safe)
+    this.elements.display.textContent = '';
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-outline-primary';
+    btn.id = 'start-stopwatch';
+    btn.textContent = 'Start Stopwatch';
+    this.elements.display.appendChild(btn);
+    
+    this.elements.controls.classList.add('hidden');
+    this.elements.startBtn = btn;
     this.elements.startBtn.addEventListener('click', () => this.start());
   }
 
@@ -155,21 +533,39 @@ function initializeTabSorting() {
     
     const browserAPI = window.browser || window.chrome;
     
-    console.log('Sending sort request to background script...');
+    // Get entertainment domains to separate them during sort
+    const entertainmentDomains = entertainmentDomainManager 
+      ? entertainmentDomainManager.getEntertainmentDomains() 
+      : [];
+    
+    console.log('Sending sort request to background script with entertainment domains:', entertainmentDomains);
     sortButton.textContent = 'Sorting...';
     sortButton.disabled = true;
     
     try {
       // Send message to background script which has full permissions
-      const response = await browserAPI.runtime.sendMessage({ action: 'sortTabs' });
+      const response = await browserAPI.runtime.sendMessage({ 
+        action: 'sortTabs',
+        entertainmentDomains: entertainmentDomains
+      });
       
       if (response.success) {
-        console.log(`Successfully sorted ${response.tabCount} tabs`);
-        sortButton.textContent = 'Sorted!';
+        const parts = [];
+        if (response.duplicatesClosed > 0) {
+          parts.push(`${response.duplicatesClosed} dupes closed`);
+        }
+        if (response.entertainmentCount > 0) {
+          parts.push(`${response.entertainmentCount} entertainment`);
+        }
+        
+        console.log(`Sorted: ${response.regularCount} regular, ${response.entertainmentCount} entertainment, ${response.duplicatesClosed} dupes closed`);
+        sortButton.textContent = parts.length > 0 
+          ? `Sorted! ${parts.join(', ')}`
+          : 'Sorted!';
         setTimeout(() => {
           sortButton.textContent = 'Sort Open Tabs';
           sortButton.disabled = false;
-        }, 1500);
+        }, 2000);
       } else {
         throw new Error(response.error || 'Unknown error');
       }
@@ -254,11 +650,13 @@ class EntertainmentDomainManager {
         }
       });
       
-      // Update datalist
-      this.elements.suggestions.innerHTML = Array.from(domains)
-        .sort()
-        .map(domain => `<option value="${domain}">`)
-        .join('');
+      // Update datalist using DOM methods (AMO-safe)
+      this.elements.suggestions.textContent = '';
+      Array.from(domains).sort().forEach(domain => {
+        const option = document.createElement('option');
+        option.value = domain;
+        this.elements.suggestions.appendChild(option);
+      });
         
     } catch (error) {
       console.error('Error updating domain suggestions:', error);
@@ -313,18 +711,24 @@ class EntertainmentDomainManager {
       
       domainItem.classList.add('removing');
       
-      // Replace content with undo button
-      domainItem.innerHTML = `
-        <button class="undo-entertainment-btn" data-domain="${domain}">Undo</button>
-        <span class="entertainment-domain-text">${domain}</span>
-      `;
+      // Replace content with undo button using DOM methods (AMO-safe)
+      domainItem.textContent = '';
       
-      // Set up undo listener
-      const undoBtn = domainItem.querySelector('.undo-entertainment-btn');
+      const undoBtn = document.createElement('button');
+      undoBtn.className = 'undo-entertainment-btn';
+      undoBtn.dataset.domain = domain;
+      undoBtn.textContent = 'Undo';
       undoBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.cancelRemoval(domain);
       });
+      
+      const domainText = document.createElement('span');
+      domainText.className = 'entertainment-domain-text';
+      domainText.textContent = domain;
+      
+      domainItem.appendChild(undoBtn);
+      domainItem.appendChild(domainText);
       
       // Schedule actual removal after 5 seconds
       const timeoutId = setTimeout(() => {
@@ -349,28 +753,42 @@ class EntertainmentDomainManager {
   }
   
   renderEntertainmentList() {
+    // Clear list using DOM methods (AMO-safe)
+    this.elements.list.textContent = '';
+    
     if (this.entertainmentDomains.length === 0) {
-      this.elements.list.innerHTML = '<p class="text-muted small">No entertainment domains added yet.</p>';
+      const emptyMsg = document.createElement('p');
+      emptyMsg.className = 'text-muted small';
+      emptyMsg.textContent = 'No entertainment domains added yet.';
+      this.elements.list.appendChild(emptyMsg);
       return;
     }
     
-    this.elements.list.innerHTML = this.entertainmentDomains
-      .sort()
-      .map(domain => `
-        <div class="entertainment-domain-item" data-domain="${domain}">
-          <button class="remove-entertainment-btn" data-domain="${domain}">&times;</button>
-          <span class="entertainment-domain-text">${domain}</span>
-        </div>
-      `).join('');
-    
-    // Attach listeners to entire domain item (not just the button)
-    this.elements.list.querySelectorAll('.entertainment-domain-item').forEach(item => {
+    this.entertainmentDomains.sort().forEach(domain => {
+      const item = document.createElement('div');
+      item.className = 'entertainment-domain-item';
+      item.dataset.domain = domain;
+      
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-entertainment-btn';
+      removeBtn.dataset.domain = domain;
+      removeBtn.textContent = '\u00D7'; // multiplication sign (x)
+      
+      const domainText = document.createElement('span');
+      domainText.className = 'entertainment-domain-text';
+      domainText.textContent = domain;
+      
+      item.appendChild(removeBtn);
+      item.appendChild(domainText);
+      
+      // Attach listener to entire domain item
       item.addEventListener('click', () => {
-        // Don't remove if it's already in "removing" state
         if (!item.classList.contains('removing')) {
-          this.removeEntertainmentDomain(item.dataset.domain, false);
+          this.removeEntertainmentDomain(domain, false);
         }
       });
+      
+      this.elements.list.appendChild(item);
     });
   }
   
@@ -417,9 +835,15 @@ function initializeEntertainmentMoving() {
       });
       
       if (response.success) {
+        const dupeMsg = response.duplicatesClosed > 0 ? `, ${response.duplicatesClosed} dupes closed` : '';
         if (response.tabCount > 0) {
-          console.log(`Successfully moved ${response.tabCount} entertainment tabs`);
-          moveButton.textContent = `Moved ${response.tabCount}!`;
+          console.log(`Successfully moved ${response.tabCount} entertainment tabs${dupeMsg}`);
+          moveButton.textContent = response.duplicatesClosed > 0
+            ? `Moved ${response.tabCount}! ${response.duplicatesClosed} dupes closed`
+            : `Moved ${response.tabCount}!`;
+        } else if (response.duplicatesClosed > 0) {
+          console.log(`No unique entertainment tabs to move, but closed ${response.duplicatesClosed} duplicates`);
+          moveButton.textContent = `${response.duplicatesClosed} dupes closed`;
         } else {
           console.log('No entertainment tabs found');
           moveButton.textContent = 'None Found';
@@ -499,6 +923,7 @@ function initializeChordifyExtraction() {
 
 // Initialize all components when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
+  setAppVersion();
   updateTime();
   setInterval(updateTime, 1000);
   loadAndRenderLinks();
