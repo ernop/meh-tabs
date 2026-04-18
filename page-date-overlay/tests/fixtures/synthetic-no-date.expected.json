@@ -1,0 +1,13 @@
+{
+  "label": "synthetic-no-date",
+  "url": "https://example.com/topics/synthetic-no-date",
+  "note": "Pages without any extractable date should return null, not invent one. Author extraction here is aspirational — current extractor only finds author via common selectors/meta, which this fixture lacks.",
+  "pending": true,
+  "expected": {
+    "publishedAt": null,
+    "modifiedAt": null,
+    "author": null,
+    "type": "article",
+    "minConfidence": "none"
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "manifest_version": 2,
+  "name": "Page Date Overlay",
+  "version": "0.1.0",
+  "description": "Shows publication date and author on every page, with a user-taught page-type classifier.",
+  "icons": {
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-128.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "page-date-overlay@ernop.local",
+      "data_collection_permissions": {
+        "required": ["none"],
+        "optional": []
+      }
+    }
+  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "activeTab",
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "exclude_matches": [
+        "*://*/*.pdf",
+        "about:*",
+        "moz-extension://*/*"
+      ],
+      "js": [
+        "common/url.js",
+        "common/storage.js",
+        "content/extractor.js",
+        "content/overlay.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "browser_action": {
+    "default_title": "Page Date Overlay — open dashboard",
+    "default_icon": {
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    },
+    "default_popup": "popup/popup.html"
+  },
+  "commands": {
+    "toggle-overlay": {
+      "suggested_key": { "default": "Alt+Shift+D" },
+      "description": "Toggle the date overlay on the current page"
+    },
+    "pick-type": {
+      "suggested_key": { "default": "Alt+Shift+T" },
+      "description": "Open the page-type picker for the current page"
+    },
+    "edit-overlay": {
+      "suggested_key": { "default": "Alt+Shift+E" },
+      "description": "Edit the current overlay's date and author values"
+    }
+  },
+  "web_accessible_resources": [
+    "content/overlay.css"
+  ]
+}

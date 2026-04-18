@@ -1,34 +1,81 @@
-# Firefox New Tab Extension
-# Purpose: Replace default new tab page with custom implementation
+# meh-tabs — Firefox Extensions Repo
 
-## REMEMBER that in extensions, there are other types of rules, based on the manifest, which you have to be very careful to follow, such as avoiding inline css styles and onclick actions.
+## What lives here
 
-- At the moment, you cannot just keep adding security overrides. Instead, you should at least try to code the extension css/js etc propertly.
+Two related Firefox MV2 extensions in the same repo:
 
-## Speaking with me:
-- When working together, if I give you an unclear directive, or if you need to know more information or see other files, please do ask about that or offer me options.
+1. **Custom New Tab** (this directory, root) — new-tab replacement: clock, stopwatch,
+   todo list, link categories, tab sorting, Chordify extraction, entertainment-tab
+   window moving, config editor.
+2. **Page Date Overlay** (`page-date-overlay/`) — content-script-based overlay that
+   shows publication date / author on every page visited. See
+   [docs/page-date-overlay.md](docs/page-date-overlay.md) for the full product doc.
 
-## Core Features
-- Custom new tab page replacement
-- Local extension (self-hosted/personal use)
-- Firefox browser compatibility
-- Quick search integration with Google
-- Category-based link organization
-- Real-time clock and date display
+## Extension security rules (BOTH extensions)
 
+- Follow Firefox extension security policies — no inline CSS styles, no `onclick`
+  handlers, no remote scripts. Do not add CSP overrides to paper over violations;
+  write the code properly.
+- AMO validation rules:
+  - No remote scripts; all JS bundled locally.
+  - Prefer DOM methods (`createElement`, `textContent`) over `innerHTML` for any
+    value that could come from remote content.
+  - `browser_specific_settings.gecko.data_collection_permissions.required`
+    must be `["none"]` (not `[]`) if the extension collects no data.
+  - Version in `manifest.json` must strictly increase for AMO uploads.
 
-## Project Structure
-/
-├── newtab.html      # Main page template
-├── newtab.js        # Core functionality
-├── links.json       # Link categories and data
-├── manifest.json    # Extension configuration
-└── bootstrap.min.css # Styling framework
+## Working with me
 
-## Development Rules
-- Keep dependencies minimal (Bootstrap + FontAwesome only)
-- Focus on performance for quick tab loading
-- Store user data locally when needed
-- Maintain clean category structure in links.json
-- Follow Firefox extension security policies
-- Use semantic HTML and accessible design
+- If a directive is unclear or you need more info or options, ask.
+- When doing substantial changes, report what you changed and any drift
+  between docs and code.
+
+## Custom New Tab — structure
+
+```
+newtab.html            Main page
+newtab.js              Core: ConfigManager, Stopwatch, EntertainmentManager, wiring
+todo.js                TodoList (localStorage, SortableJS drag-and-drop)
+background.js          Tab sort, Chordify extraction, entertainment moving
+styles.css             Custom styles
+bootstrap.min.css      Bootstrap 5 CSS (local)
+bootstrap.bundle.min.js Bootstrap 5 JS (local, required by AMO)
+Sortable.min.js        Sortable (local, required by AMO)
+icons/                 32/48/96/128 PNG icons
+links.json.example     Example config
+personal-config.json   Personal config (gitignored)
+dist/                  Signed XPI builds
+build-and-sign.ps1     AMO upload + signing helper
+tools/package.py       Packaging helper
+tools-generate-icons.py  Icon generation
+```
+
+## Page Date Overlay — structure (see docs/page-date-overlay.md)
+
+```
+page-date-overlay/
+├── manifest.json
+├── background.js         Wayback Machine + Last-Modified HEAD + messaging
+├── content/
+│   ├── extractor.js      Tier 1-3 signal extractors (meta, JSON-LD, URL, text)
+│   ├── overlay.js        Shadow-DOM overlay UI, edit/override, type picker
+│   └── overlay.css       Overlay styles (injected into shadow root)
+├── newtab/               Optional dashboard (reading history, rules)
+│   ├── index.html
+│   └── index.js
+├── common/
+│   ├── storage.js        pageMeta / typeRules / settings helpers
+│   └── url.js            URL normalization
+└── icons/
+```
+
+## Conventions (BOTH extensions)
+
+- Keep dependencies minimal. No new frameworks; Bootstrap + Sortable is it.
+- Performance matters, especially on the new-tab page and content script
+  (runs on every page load).
+- User data stays local; never send page content off the machine without
+  explicit per-call user opt-in.
+- No inline styles or inline event handlers; separate CSS files; wire events
+  via `addEventListener` from JS.
+- Comments should explain intent or non-obvious constraints, not narrate code.

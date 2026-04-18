@@ -1,0 +1,19 @@
+{
+  "name": "page-date-overlay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Firefox extension that extracts and overlays publication date/author on every page.",
+  "scripts": {
+    "test": "node tests/smoke.js && node tests/extractor.test.js",
+    "test:smoke": "node tests/smoke.js",
+    "test:extractor": "node tests/extractor.test.js",
+    "lint": "web-ext lint --source-dir=.",
+    "run:firefox": "web-ext run --source-dir=.",
+    "try": "node tools/try-url.js",
+    "fetch-fixture": "node tools/fetch-fixture.js"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1",
+    "web-ext": "^8.3.0"
+  }
+}

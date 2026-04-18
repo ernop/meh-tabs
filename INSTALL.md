@@ -29,7 +29,8 @@ Before installing the extension, set up your personal configuration:
 
 3. **Click "Load Temporary Add-on"** button
 
-4. **Navigate to your extension folder** (`D:\proj\mynewtab`)
+4. **Navigate to your extension folder** (`C:\proj\meh-tabs` for Custom New Tab,
+   or `C:\proj\meh-tabs\page-date-overlay` for the overlay extension)
 
 5. **Select the `manifest.json` file** and click "Open"
 
@@ -89,7 +90,7 @@ This extension is published as an **unlisted** add-on on AMO. Updates are deploy
 
 2. **Build the upload zip:**
    ```powershell
-   cd D:\proj\mynewtab
+   cd C:\proj\meh-tabs
    $manifest = Get-Content "manifest.json" | ConvertFrom-Json
    $version = $manifest.version
    $zipPath = "dist\mynewtab-$version.zip"
@@ -150,7 +151,7 @@ Your custom new tab extension includes:
 - ✅ **Google Search** - Quick search integration
 - ✅ **Local Storage** - All data stored locally (localStorage)
 - ✅ **Dual Configuration** - Supports both `links.json` (default) and `personal-config.json` (preferred)
-- ✅ **CDN Dependencies** - jQuery, jQuery-UI, Bootstrap, and Sortable loaded from CDNs
+- ✅ **Local Dependencies** - Bootstrap 5 CSS/JS and SortableJS bundled locally (AMO requires no remote scripts). FontAwesome classes in configs render only if FontAwesome is loaded separately; otherwise they degrade to plain text labels.
 
 ## Troubleshooting
 
@@ -160,9 +161,11 @@ Your custom new tab extension includes:
 - Verify `manifest.json` is valid JSON
 
 ### Icons Not Showing
-- Icons use Unicode emojis (🤖, 💬, ⭐, etc.)
-- Emojis should work automatically with system fonts
-- If emojis don't display properly, check your operating system's font support
+- Link config uses FontAwesome class names (e.g. `fa-solid fa-robot`) or Unicode
+  emoji strings. FontAwesome is not bundled with the extension by default, so
+  FA-class icons will simply not render unless you add a FontAwesome stylesheet
+  to `newtab.html`. Unicode emojis in config work without any extra setup.
+- Extension toolbar/tab icons use the PNGs in `icons/`.
 
 ### Tab Sorting Not Working
 - Verify the extension has "tabs" permission in `manifest.json`
@@ -188,23 +191,29 @@ To modify the extension:
 ## File Structure
 
 ```
-mynewtab/
-├── manifest.json          # Extension configuration
-├── newtab.html           # Main new tab page
-├── newtab.js             # Core functionality
-├── todo.js               # Todo list functionality
-├── background.js         # Background script for tab sorting
-├── styles.css            # Custom styles
-├── bootstrap.min.css     # Bootstrap CSS (local)
-├── links.json            # Default link categories (Unicode emojis)
-├── personal-config.json  # Personal link configuration (Unicode emojis)
-├── mynewtab.xpi          # Packaged extension file
-└── chrome-extension/     # Chrome variant (if applicable)
-    ├── links.json
-    └── personal-config.json
+meh-tabs/
+├── manifest.json             # Custom New Tab extension manifest
+├── newtab.html               # New tab page
+├── newtab.js                 # Core functionality (ConfigManager, Stopwatch, etc.)
+├── todo.js                   # Todo list
+├── background.js             # Tab sort, Chordify extract, entertainment move
+├── styles.css                # Custom styles
+├── bootstrap.min.css         # Bootstrap 5 CSS (local)
+├── bootstrap.bundle.min.js   # Bootstrap 5 JS (local, required by AMO)
+├── Sortable.min.js           # SortableJS (local, required by AMO)
+├── icons/                    # Extension icons (32/48/96/128 PNG)
+├── links.json.example        # Example link config
+├── personal-config.json      # Personal link config (gitignored)
+├── dist/                     # Signed XPI builds
+├── build-and-sign.ps1        # AMO upload + signing helper
+├── tools/                    # Packaging scripts
+├── tools-generate-icons.py   # Icon generation
+├── docs/                     # Product docs (see page-date-overlay.md)
+├── page-date-overlay/        # Second extension: page date/author overlay
+└── chrome-extension/         # Future Chrome variant (placeholder)
 ```
 
-**Note:** JavaScript dependencies (jQuery, jQuery-UI, Bootstrap JS, Sortable) are loaded from CDNs in `newtab.html`, not stored locally.
+**Note:** All JavaScript dependencies (Bootstrap JS, SortableJS) are bundled locally. AMO rejects remote scripts.
 
 ## Customization
 
