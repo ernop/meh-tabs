@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Page Date Overlay — Dashboard</title>
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Page Date Overlay</h1>
+      <div class="actions">
+        <button id="export" class="btn">Export JSON</button>
+        <button id="import" class="btn">Import JSON</button>
+        <input type="file" id="import-file" accept=".json" class="hidden">
+      </div>
+    </header>
+
+    <section class="cards">
+      <div class="card"><div class="card-label">Pages tracked</div><div class="card-value" id="stat-pages">0</div></div>
+      <div class="card"><div class="card-label">With date</div><div class="card-value" id="stat-dated">0</div></div>
+      <div class="card"><div class="card-label">With author</div><div class="card-value" id="stat-authored">0</div></div>
+      <div class="card"><div class="card-label">User overrides</div><div class="card-value" id="stat-overrides">0</div></div>
+      <div class="card"><div class="card-label">Reads (7d)</div><div class="card-value" id="stat-reads-7d">0</div></div>
+      <div class="card"><div class="card-label">Type rules</div><div class="card-value" id="stat-rules">0</div></div>
+    </section>
+
+    <section>
+      <h2>Settings</h2>
+      <div class="settings">
+        <label><input type="checkbox" id="s-enabled"> Extension enabled</label>
+        <label>Overlay position
+          <select id="s-position">
+            <option value="tr">Top right</option>
+            <option value="tl">Top left</option>
+            <option value="br">Bottom right</option>
+            <option value="bl">Bottom left</option>
+          </select>
+        </label>
+        <label>Hide overlay on types
+          <span id="s-hidden-types"></span>
+        </label>
+        <label>Min active seconds to count as read
+          <input type="number" id="s-read-sec" min="5" max="600" step="5">
+        </label>
+        <label>Min scroll % to count as read
+          <input type="number" id="s-read-scroll" min="5" max="100" step="5">
+        </label>
+      </div>
+    </section>
+
+    <section>
+      <h2>Type rules <span id="rules-count" class="muted"></span></h2>
+      <div class="muted small">Ordered list — first match wins. Remove to regenerate matching.</div>
+      <table class="table">
+        <thead><tr><th>#</th><th>Match</th><th>Pattern</th><th>Type</th><th>Added</th><th></th></tr></thead>
+        <tbody id="rules-body"></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Recent pages</h2>
+      <div class="filters">
+        <input type="search" id="filter-url" placeholder="Filter by URL / author…">
+        <select id="filter-type">
+          <option value="">All types</option>
+        </select>
+        <select id="filter-date">
+          <option value="all">All dates</option>
+          <option value="dated">Only with date</option>
+          <option value="unknown">Only unknown date</option>
+        </select>
+        <select id="filter-override">
+          <option value="all">All</option>
+          <option value="yes">Overridden only</option>
+          <option value="no">Auto only</option>
+        </select>
+      </div>
+      <table class="table">
+        <thead><tr><th>Last seen</th><th>URL</th><th>Published</th><th>Author</th><th>Type</th><th>Conf</th><th>Reads</th><th></th></tr></thead>
+        <tbody id="pages-body"></tbody>
+      </table>
+    </section>
+  </div>
+
+  <script src="../common/url.js"></script>
+  <script src="../common/storage.js"></script>
+  <script src="index.js"></script>
+</body>
+</html>

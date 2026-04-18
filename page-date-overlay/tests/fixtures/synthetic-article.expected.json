@@ -1,0 +1,13 @@
+{
+  "label": "synthetic-article",
+  "url": "https://example.com/2024/03/15/synthetic-article",
+  "note": "Hand-authored fixture exercising JSON-LD + OG + <time> + byline all in agreement.",
+  "pending": false,
+  "expected": {
+    "publishedAt": "2024-03-15",
+    "modifiedAt": "2024-04-02",
+    "author": "Jane Doe",
+    "type": "article",
+    "minConfidence": "high"
+  }
+}

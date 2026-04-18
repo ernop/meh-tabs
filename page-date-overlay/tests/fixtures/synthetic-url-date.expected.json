@@ -1,0 +1,13 @@
+{
+  "label": "synthetic-url-date",
+  "url": "https://example.com/2023/11/07/tier-2-only-date",
+  "note": "URL contains /YYYY/MM/DD/ and nothing else. Expect Tier 2 to fire.",
+  "pending": false,
+  "expected": {
+    "publishedAt": "2023-11-07",
+    "modifiedAt": null,
+    "author": null,
+    "type": "article",
+    "minConfidence": "medium"
+  }
+}

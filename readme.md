@@ -1,12 +1,20 @@
-# Firefox New Tab Extension
+# meh-tabs
 
-Replace your default Firefox new tab page with a custom implementation featuring:
-- Quick access to favorite links organized by category
-- Real-time clock and date display
-- Built-in stopwatch
-- Todo list with task management
-- Tab sorting functionality
-- Google search integration
+Firefox-extensions monorepo. Two extensions built together here:
+
+1. **Custom New Tab** (this directory) — replaces the Firefox new tab page with:
+   - Quick links organized by category (edit in the UI or via `personal-config.json`)
+   - Real-time clock and date display
+   - Built-in stopwatch
+   - Todo list (drag-and-drop, export/import)
+   - Tab sorting (audio tabs → mega-priority domains → alphabetical)
+   - Move "entertainment" domain tabs to a separate window
+   - Extract Chordify tabs to a new window
+   - Google search
+2. **Page Date Overlay** (`page-date-overlay/`) — content-script overlay that
+   extracts publication date and author from every page you visit, with a
+   user-taught page-type classifier. See [docs/page-date-overlay.md](docs/page-date-overlay.md)
+   for the full product doc.
 
 ## Installation
 
@@ -26,7 +34,7 @@ The extension is signed and unlisted on AMO. Download the XPI from your develope
 
 After making code changes:
 ```powershell
-cd D:\proj\mybrowser\browser\mynewtab
+cd C:\proj\meh-tabs
 .\build-and-sign.ps1 -BumpVersion patch   # 1.0.1 -> 1.0.2
 ```
 Then in Firefox: `about:addons` > gear icon > "Check for Updates"
@@ -135,7 +143,8 @@ The extension looks for `personal-config.json` first, then falls back to `links.
 ## Browser Compatibility
 
 - **Primary**: Firefox (manifest v2)
-- **Note**: Chrome support available via `chrome-extension/` directory
+- `chrome-extension/` holds a placeholder for future Chrome support; not yet
+  a working Chrome extension.
 
 ## Privacy
 

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-root">
+    <h1 class="title">Page Date Overlay</h1>
+    <div id="current-info" class="info"></div>
+    <div class="actions">
+      <button id="toggle" class="btn">Toggle overlay here</button>
+      <button id="pick-type" class="btn">Pick page type</button>
+      <button id="dashboard" class="btn primary">Open dashboard</button>
+    </div>
+    <div class="settings">
+      <label><input type="checkbox" id="enabled"> Extension enabled</label>
+      <label>Position
+        <select id="position">
+          <option value="tr">Top right</option>
+          <option value="tl">Top left</option>
+          <option value="br">Bottom right</option>
+          <option value="bl">Bottom left</option>
+        </select>
+      </label>
+    </div>
+  </div>
+  <script src="../common/url.js"></script>
+  <script src="../common/storage.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
