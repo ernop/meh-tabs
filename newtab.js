@@ -398,46 +398,23 @@ function createAddCategoryButton() {
   return wrapper;
 }
 
-// --- Local Services: auto-synced from the Caddy reverse proxy (localhost:2019) ---
-// Reads Caddy's live config and lists every *.localhost host that reverse_proxies
-// to a local port. Add a route to the Caddyfile and it shows up here automatically;
-// nothing here is stored in the Custom New Tab config.
-const CADDY_ADMIN_URL = 'http://localhost:2019/config/';
-
-// reverse_proxy handlers are nested inside a "subroute" handler, so recurse.
-function caddyHandleHasProxy(handlers) {
-  for (const h of handlers || []) {
-    if (h.handler === 'reverse_proxy') return true;
-    if (h.handler === 'subroute') {
-      for (const r of h.routes || []) {
-        if (caddyHandleHasProxy(r.handle)) return true;
-      }
-    }
-  }
-  return false;
-}
+// --- Local Services: read from the Caddy dashboard's service list ---
+// Source is http://home.localhost/projects.json, served by the same Caddy that
+// runs the dashboard. (Caddy's admin API on :2019 blocks browser origins by
+// design, so we read this normal, browser-fetchable route instead.) Same list
+// the dashboard shows; nothing here is stored in the Custom New Tab config.
+const LOCAL_SERVICES_URL = 'http://home.localhost/projects.json';
 
 async function fetchCaddyServices() {
-  const res = await fetch(CADDY_ADMIN_URL, { cache: 'no-store' });
-  if (!res.ok) throw new Error('Caddy admin ' + res.status);
-  const cfg = await res.json();
-  const servers = (cfg.apps && cfg.apps.http && cfg.apps.http.servers) || {};
-  const seen = new Set();
-  const out = [];
-  for (const srv of Object.values(servers)) {
-    for (const route of srv.routes || []) {
-      if (!caddyHandleHasProxy(route.handle)) continue;
-      for (const m of route.match || []) {
-        for (const host of m.host || []) {
-          if (seen.has(host)) continue;
-          seen.add(host);
-          out.push({ name: host.replace(/\.localhost$/, ''), href: 'http://' + host });
-        }
-      }
-    }
-  }
-  out.sort((a, b) => a.name.localeCompare(b.name));
-  return out;
+  const res = await fetch(LOCAL_SERVICES_URL, { cache: 'no-store' });
+  if (!res.ok) throw new Error('services list ' + res.status);
+  const list = await res.json();
+  return (list || [])
+    .map(s => ({
+      name: s.label || s.hostname || s.url,
+      href: s.url || (s.hostname ? 'http://' + s.hostname : '#'),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // Link card without the edit-mode remove button (this section isn't user-editable).
@@ -495,7 +472,7 @@ function renderLocalServices(container) {
     linksContainer.textContent = '';
     const msg = document.createElement('span');
     msg.className = 'text-muted';
-    msg.textContent = 'Caddy proxy not reachable (localhost:2019).';
+    msg.textContent = 'Local services list not reachable (home.localhost).';
     linksContainer.appendChild(msg);
     console.warn('Local Services fetch failed:', err);
   });

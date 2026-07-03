@@ -24,7 +24,7 @@
   "permissions": [
     "storage",
     "tabs",
-    "http://localhost:2019/*"
+    "http://home.localhost/*"
   ],
   "background": {
     "scripts": ["background.js"],
