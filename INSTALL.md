@@ -93,7 +93,7 @@ This extension is published as an **unlisted** add-on on AMO. Updates are deploy
    cd C:\proj\meh-tabs
    $manifest = Get-Content "manifest.json" | ConvertFrom-Json
    $version = $manifest.version
-   $zipPath = "dist\mynewtab-$version.zip"
+   $zipPath = "dist\custom-new-tab-$version.zip"
    $files = @(
      "manifest.json", "newtab.html", "newtab.js", "background.js", "todo.js",
      "styles.css", "bootstrap.min.css", "bootstrap.bundle.min.js", 
@@ -109,7 +109,7 @@ This extension is published as an **unlisted** add-on on AMO. Updates are deploy
 3. **Upload to AMO:**
    - Go to: https://addons.mozilla.org/en-US/developers/addon/afbf11016ec54c478061/versions/
    - Click "Upload a New Version"
-   - Select `dist\mynewtab-X.X.X.zip`
+   - Select `dist\custom-new-tab-X.X.X.zip`
    - Wait for validation (usually a few minutes)
    - Submit
 

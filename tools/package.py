@@ -45,9 +45,9 @@ def main() -> None:
         "icons/icon-128.png",
     ]
 
-    dist_zip = root / "dist" / f"mynewtab-{version}.zip"
-    upload_zip = root / "mynewtab-upload.zip"
-    unsigned_xpi = root / "mynewtab.xpi"
+    dist_zip = root / "dist" / f"custom-new-tab-{version}.zip"
+    upload_zip = root / "custom-new-tab-upload.zip"
+    unsigned_xpi = root / "custom-new-tab.xpi"
 
     make_zip(root, dist_zip, rel_files)
     make_zip(root, upload_zip, rel_files)

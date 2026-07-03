@@ -23,7 +23,8 @@
   },
   "permissions": [
     "storage",
-    "tabs"
+    "tabs",
+    "http://localhost:2019/*"
   ],
   "background": {
     "scripts": ["background.js"],

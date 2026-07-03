@@ -398,19 +398,126 @@ function createAddCategoryButton() {
   return wrapper;
 }
 
+// --- Local Services: auto-synced from the Caddy reverse proxy (localhost:2019) ---
+// Reads Caddy's live config and lists every *.localhost host that reverse_proxies
+// to a local port. Add a route to the Caddyfile and it shows up here automatically;
+// nothing here is stored in the Custom New Tab config.
+const CADDY_ADMIN_URL = 'http://localhost:2019/config/';
+
+// reverse_proxy handlers are nested inside a "subroute" handler, so recurse.
+function caddyHandleHasProxy(handlers) {
+  for (const h of handlers || []) {
+    if (h.handler === 'reverse_proxy') return true;
+    if (h.handler === 'subroute') {
+      for (const r of h.routes || []) {
+        if (caddyHandleHasProxy(r.handle)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+async function fetchCaddyServices() {
+  const res = await fetch(CADDY_ADMIN_URL, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Caddy admin ' + res.status);
+  const cfg = await res.json();
+  const servers = (cfg.apps && cfg.apps.http && cfg.apps.http.servers) || {};
+  const seen = new Set();
+  const out = [];
+  for (const srv of Object.values(servers)) {
+    for (const route of srv.routes || []) {
+      if (!caddyHandleHasProxy(route.handle)) continue;
+      for (const m of route.match || []) {
+        for (const host of m.host || []) {
+          if (seen.has(host)) continue;
+          seen.add(host);
+          out.push({ name: host.replace(/\.localhost$/, ''), href: 'http://' + host });
+        }
+      }
+    }
+  }
+  out.sort((a, b) => a.name.localeCompare(b.name));
+  return out;
+}
+
+// Link card without the edit-mode remove button (this section isn't user-editable).
+function createLocalServiceCard(link) {
+  const wrapper = document.createElement('span');
+  wrapper.className = 'link-wrapper';
+  const a = document.createElement('a');
+  a.href = link.href;
+  a.className = 'link-btn';
+  const icon = document.createElement('i');
+  icon.className = 'fa-solid fa-server';
+  a.appendChild(icon);
+  a.appendChild(document.createTextNode(' ' + link.name));
+  wrapper.appendChild(a);
+  return wrapper;
+}
+
+// Builds the section shell synchronously (so ordering is stable), then fills it in.
+function renderLocalServices(container) {
+  const section = document.createElement('div');
+  section.className = 'category-section';
+  section.dataset.category = 'Local Services';
+
+  const header = document.createElement('div');
+  header.className = 'category-header';
+  const h2 = document.createElement('h2');
+  const hicon = document.createElement('i');
+  hicon.className = 'fa-solid fa-server me-2';
+  h2.appendChild(hicon);
+  h2.appendChild(document.createTextNode('Local Services'));
+  header.appendChild(h2);
+  section.appendChild(header);
+
+  const linksContainer = document.createElement('div');
+  linksContainer.className = 'links-container';
+  const loading = document.createElement('span');
+  loading.className = 'text-muted';
+  loading.textContent = 'Loading from Caddy…';
+  linksContainer.appendChild(loading);
+  section.appendChild(linksContainer);
+
+  container.appendChild(section);
+
+  fetchCaddyServices().then(services => {
+    linksContainer.textContent = '';
+    if (!services.length) {
+      const none = document.createElement('span');
+      none.className = 'text-muted';
+      none.textContent = 'No Caddy services found.';
+      linksContainer.appendChild(none);
+      return;
+    }
+    services.forEach(svc => linksContainer.appendChild(createLocalServiceCard(svc)));
+  }).catch(err => {
+    linksContainer.textContent = '';
+    const msg = document.createElement('span');
+    msg.className = 'text-muted';
+    msg.textContent = 'Caddy proxy not reachable (localhost:2019).';
+    linksContainer.appendChild(msg);
+    console.warn('Local Services fetch failed:', err);
+  });
+}
+
 // Load and render links
 function renderLinks() {
   const container = document.getElementById('categories-container');
   if (!container || !configManager) return;
-  
+
   const categories = configManager.getCategories();
-  
+
   // Clear and rebuild using DOM methods
   container.textContent = '';
+
+  // Auto-synced Local Services section (from Caddy), shown first.
+  renderLocalServices(container);
+
   categories.forEach(category => {
     container.appendChild(createCategorySectionElement(category));
   });
-  
+
   // Add "Add Category" button for edit mode
   container.appendChild(createAddCategoryButton());
 }

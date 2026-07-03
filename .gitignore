@@ -2,8 +2,9 @@
 personal-config.json
 chrome-extension/personal-config.json
 
-# Extension packages
+# Extension packages (build artifacts)
 *.xpi
+*.zip
 
 # Node modules if using npm
 node_modules/
