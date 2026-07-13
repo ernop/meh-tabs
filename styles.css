@@ -420,6 +420,24 @@ body.edit-mode .category-section {
     color: #b00;
 }
 
+.github-remove-btn {
+    border: none;
+    background: transparent;
+    color: #bbb;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0 4px;
+    cursor: pointer;
+}
+
+.github-remove-btn:hover {
+    color: #b00;
+}
+
+.github-add {
+    max-width: 360px;
+}
+
 /* Status dot -- shared with the Local Services card */
 .svc-dot {
     width: 10px;

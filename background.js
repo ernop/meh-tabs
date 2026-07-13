@@ -446,12 +446,13 @@ const GH_API = 'https://github-contributions-api.jogruber.de/v4/';
 // several refresh messages at once, but they share this one in-flight promise.
 let ghRefreshInFlight = null;
 
-// Resolve the watch list with the same precedence ConfigManager uses in the
-// page: user-edited storage first, then the per-machine file, then the example.
+// Resolve the watch list: the live storage.local list (edited from the tab) is
+// authoritative; the committed config file is only a fallback used to seed a
+// fresh machine before the page has stored anything.
 async function ghGetWatchList() {
   try {
-    const { pageConfig } = await browserAPI.storage.local.get('pageConfig');
-    if (pageConfig && Array.isArray(pageConfig.githubWatch)) return pageConfig.githubWatch;
+    const { githubWatch } = await browserAPI.storage.local.get('githubWatch');
+    if (Array.isArray(githubWatch)) return githubWatch;
   } catch (e) { /* storage unavailable */ }
   for (const file of ['personal-config.json', 'links.json']) {
     try {

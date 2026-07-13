@@ -170,7 +170,8 @@ class ConfigManager {
     
     return {
       ...this.config,
-      entertainmentDomains
+      entertainmentDomains,
+      githubWatch: githubWatchList
     };
   }
 
@@ -240,7 +241,14 @@ class ConfigManager {
           await entertainmentDomainManager.saveEntertainmentDomains();
           entertainmentDomainManager.renderEntertainmentList();
         }
-        
+
+        // Also import the GitHub watch list if present
+        if (Array.isArray(data.githubWatch)) {
+          await saveGithubWatchList(data.githubWatch);
+          await renderGithubCard(await readGithubCache());
+          requestGithubRefresh(false); // fetch any newly-imported users
+        }
+
         if (this.onConfigChange) this.onConfigChange();
         return true;
       }
@@ -522,13 +530,23 @@ async function loadAndRenderLinks() {
 }
 
 // ============================================================================
-// GITHUB CONTRIBUTION MONITOR (view)
+// GITHUB CONTRIBUTION MONITOR (view + live-editable watch list)
 // This page NEVER calls the GitHub API -- the background script is the single
-// fetch path (see background.js for why). Here we only read the cached result
-// from storage.local and ask the background to refresh when the cache is cold
-// or the user clicks Refresh.
+// fetch path (see background.js for why). Here we render the cached counts and
+// let the user add/remove watched usernames right in the tab.
+//
+// The watch list lives in storage.local under `githubWatch`, exactly like the
+// entertainment domain list -- so it survives without any per-machine file and
+// rides along in the Export/Import config JSON. On a fresh machine the list is
+// seeded once from the committed config file (personal-config.json/links.json),
+// after which the live store is authoritative.
 // ============================================================================
 const GH_CACHE_KEY = 'githubContrib';
+const GH_WATCH_KEY = 'githubWatch';
+
+// In-memory mirror of the watch list so the (synchronous) config export can
+// include it, matching how entertainmentDomainManager exposes its list.
+let githubWatchList = [];
 
 async function readGithubCache() {
   try {
@@ -536,6 +554,44 @@ async function readGithubCache() {
     return result[GH_CACHE_KEY] || null;
   } catch (e) {
     return null;
+  }
+}
+
+// Load the live watch list, seeding it once from the committed config file if
+// this machine has never stored one.
+async function loadGithubWatchList() {
+  const api = window.browser || window.chrome;
+  try {
+    const result = await api.storage.local.get(GH_WATCH_KEY);
+    if (Array.isArray(result[GH_WATCH_KEY])) {
+      githubWatchList = result[GH_WATCH_KEY];
+      return githubWatchList;
+    }
+  } catch (e) { /* storage unavailable */ }
+
+  for (const file of ['personal-config.json', 'links.json']) {
+    try {
+      const res = await fetch(api.runtime.getURL(file));
+      if (res.ok) {
+        const cfg = await res.json();
+        if (Array.isArray(cfg.githubWatch)) {
+          githubWatchList = cfg.githubWatch;
+          await saveGithubWatchList(githubWatchList); // seed the live store
+          return githubWatchList;
+        }
+      }
+    } catch (e) { /* file absent */ }
+  }
+  githubWatchList = [];
+  return githubWatchList;
+}
+
+async function saveGithubWatchList(list) {
+  githubWatchList = list;
+  try {
+    await (window.browser || window.chrome).storage.local.set({ [GH_WATCH_KEY]: list });
+  } catch (e) {
+    console.error('Failed to save github watch list:', e);
   }
 }
 
@@ -560,14 +616,37 @@ function githubTimeAgo(ts) {
   return `${Math.round(hrs / 24)}d ago`;
 }
 
-function renderGithubCard(cache) {
+// Normalize whatever the user pastes (a URL, @handle, or bare name) to a login.
+function normalizeGithubUsername(raw) {
+  let name = (raw || '').trim();
+  const urlMatch = name.match(/github\.com\/([^/?#]+)/i);
+  if (urlMatch) name = urlMatch[1];
+  name = name.replace(/^@/, '').replace(/\/+$/, '');
+  return name;
+}
+
+async function addGithubUser(raw) {
+  const name = normalizeGithubUsername(raw);
+  if (!name) return;
+  if (githubWatchList.some(n => n.toLowerCase() === name.toLowerCase())) return; // dedupe
+  await saveGithubWatchList([...githubWatchList, name]);
+  await renderGithubCard(await readGithubCache());
+  // Fetch just the new user (the background's staleness guard skips the rest).
+  const resp = await requestGithubRefresh(false);
+  await renderGithubCard(resp && resp.data ? resp.data : await readGithubCache());
+}
+
+async function removeGithubUser(name) {
+  await saveGithubWatchList(githubWatchList.filter(n => n !== name));
+  await renderGithubCard(await readGithubCache());
+}
+
+async function renderGithubCard(cache) {
   const container = document.getElementById('github-container');
   if (!container) return;
   container.textContent = '';
 
   const users = cache && cache.users ? cache.users : {};
-  const names = Object.keys(users);
-  if (names.length === 0) return; // nothing watched yet, or first fetch not done
 
   const card = document.createElement('div');
   card.className = 'card mb-4';
@@ -586,7 +665,7 @@ function renderGithubCard(cache) {
     refreshBtn.textContent = 'Refreshing...';
     refreshBtn.disabled = true;
     const resp = await requestGithubRefresh(true);
-    renderGithubCard(resp && resp.data ? resp.data : await readGithubCache());
+    await renderGithubCard(resp && resp.data ? resp.data : await readGithubCache());
   });
   header.appendChild(refreshBtn);
   card.appendChild(header);
@@ -596,26 +675,34 @@ function renderGithubCard(cache) {
   const list = document.createElement('div');
   list.className = 'github-list';
 
-  // Most-active first; unavailable/zero fall to the bottom.
-  names.sort((a, b) => (users[b].lastYear || 0) - (users[a].lastYear || 0));
+  // Rows come from the watch list (not the cache), so a just-added user shows
+  // immediately as "loading" before the first fetch lands. Most-active first.
+  const names = [...githubWatchList].sort((a, b) => {
+    const ay = (users[a] && users[a].lastYear) || 0;
+    const by = (users[b] && users[b].lastYear) || 0;
+    return by - ay;
+  });
+
   names.forEach(name => {
     const info = users[name];
-    const row = document.createElement('a');
+    const row = document.createElement('div');
     row.className = 'github-row';
-    row.href = `https://github.com/${encodeURIComponent(name)}`;
 
     const dot = document.createElement('span');
-    dot.className = 'svc-dot ' + (info.ok && info.lastYear > 0 ? 'up' : 'down');
+    dot.className = 'svc-dot ' + (info && info.ok && info.lastYear > 0 ? 'up' : 'down');
     row.appendChild(dot);
 
-    const user = document.createElement('span');
-    user.className = 'github-user';
-    user.textContent = name;
-    row.appendChild(user);
+    const link = document.createElement('a');
+    link.className = 'github-user';
+    link.href = `https://github.com/${encodeURIComponent(name)}`;
+    link.textContent = name;
+    row.appendChild(link);
 
     const count = document.createElement('span');
     count.className = 'github-count';
-    if (!info.ok) {
+    if (!info) {
+      count.textContent = 'loading…';
+    } else if (!info.ok) {
       count.textContent = 'unavailable';
       count.classList.add('github-error');
     } else {
@@ -623,9 +710,45 @@ function renderGithubCard(cache) {
     }
     row.appendChild(count);
 
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'github-remove-btn';
+    removeBtn.textContent = '×'; // multiplication sign (x)
+    removeBtn.title = `Stop watching ${name}`;
+    removeBtn.addEventListener('click', () => removeGithubUser(name));
+    row.appendChild(removeBtn);
+
     list.appendChild(row);
   });
+
+  if (names.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'text-muted small mb-2';
+    empty.textContent = 'No GitHub users watched yet. Add a username below.';
+    list.appendChild(empty);
+  }
   body.appendChild(list);
+
+  // Add-username input.
+  const addGroup = document.createElement('div');
+  addGroup.className = 'input-group input-group-sm github-add mt-2';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'form-control';
+  input.placeholder = 'Add GitHub username or profile URL…';
+  input.autocomplete = 'off';
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn btn-primary';
+  addBtn.textContent = 'Add';
+  const submit = () => {
+    const val = input.value;
+    input.value = '';
+    if (val.trim()) addGithubUser(val);
+  };
+  addBtn.addEventListener('click', submit);
+  input.addEventListener('keypress', e => { if (e.key === 'Enter') submit(); });
+  addGroup.appendChild(input);
+  addGroup.appendChild(addBtn);
+  body.appendChild(addGroup);
 
   const note = document.createElement('div');
   note.className = 'svc-note';
@@ -640,15 +763,18 @@ async function loadAndRenderGithub() {
   const container = document.getElementById('github-container');
   if (!container) return;
 
+  await loadGithubWatchList();
   const cache = await readGithubCache();
-  renderGithubCard(cache);
+  await renderGithubCard(cache);
 
-  // Cold cache -> ask the background to populate it once, then re-render. The
-  // background coalesces concurrent requests, so opening several tabs at once
-  // still results in a single fetch per user.
-  if (!cache || !cache.users || Object.keys(cache.users).length === 0) {
+  // Ask the background to fill any watched users missing from the cache (cold
+  // cache, or newly seeded list), then re-render. The background coalesces
+  // concurrent requests, so opening several tabs at once yields one fetch each.
+  const cachedNames = cache && cache.users ? Object.keys(cache.users) : [];
+  const missing = githubWatchList.some(n => !cachedNames.includes(n));
+  if (missing) {
     const resp = await requestGithubRefresh(false);
-    renderGithubCard(resp && resp.data ? resp.data : await readGithubCache());
+    await renderGithubCard(resp && resp.data ? resp.data : await readGithubCache());
   }
 }
 
