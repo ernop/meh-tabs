@@ -24,7 +24,9 @@
   "permissions": [
     "storage",
     "tabs",
-    "http://home.localhost/*"
+    "alarms",
+    "http://home.localhost/*",
+    "https://github-contributions-api.jogruber.de/*"
   ],
   "background": {
     "scripts": ["background.js"],

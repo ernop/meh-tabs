@@ -521,6 +521,137 @@ async function loadAndRenderLinks() {
   }
 }
 
+// ============================================================================
+// GITHUB CONTRIBUTION MONITOR (view)
+// This page NEVER calls the GitHub API -- the background script is the single
+// fetch path (see background.js for why). Here we only read the cached result
+// from storage.local and ask the background to refresh when the cache is cold
+// or the user clicks Refresh.
+// ============================================================================
+const GH_CACHE_KEY = 'githubContrib';
+
+async function readGithubCache() {
+  try {
+    const result = await (window.browser || window.chrome).storage.local.get(GH_CACHE_KEY);
+    return result[GH_CACHE_KEY] || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function requestGithubRefresh(force = false) {
+  const api = window.browser || window.chrome;
+  return new Promise(resolve => {
+    try {
+      api.runtime.sendMessage({ action: 'refreshGithub', force }, resp => resolve(resp));
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
+
+function githubTimeAgo(ts) {
+  if (!ts) return '';
+  const mins = Math.round((Date.now() - ts) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.round(hrs / 24)}d ago`;
+}
+
+function renderGithubCard(cache) {
+  const container = document.getElementById('github-container');
+  if (!container) return;
+  container.textContent = '';
+
+  const users = cache && cache.users ? cache.users : {};
+  const names = Object.keys(users);
+  if (names.length === 0) return; // nothing watched yet, or first fetch not done
+
+  const card = document.createElement('div');
+  card.className = 'card mb-4';
+
+  const header = document.createElement('div');
+  header.className = 'card-header d-flex justify-content-between align-items-center';
+  const h5 = document.createElement('h5');
+  h5.className = 'mb-0';
+  h5.textContent = 'GitHub Activity';
+  header.appendChild(h5);
+
+  const refreshBtn = document.createElement('button');
+  refreshBtn.className = 'btn btn-sm btn-outline-secondary';
+  refreshBtn.textContent = 'Refresh';
+  refreshBtn.addEventListener('click', async () => {
+    refreshBtn.textContent = 'Refreshing...';
+    refreshBtn.disabled = true;
+    const resp = await requestGithubRefresh(true);
+    renderGithubCard(resp && resp.data ? resp.data : await readGithubCache());
+  });
+  header.appendChild(refreshBtn);
+  card.appendChild(header);
+
+  const body = document.createElement('div');
+  body.className = 'card-body';
+  const list = document.createElement('div');
+  list.className = 'github-list';
+
+  // Most-active first; unavailable/zero fall to the bottom.
+  names.sort((a, b) => (users[b].lastYear || 0) - (users[a].lastYear || 0));
+  names.forEach(name => {
+    const info = users[name];
+    const row = document.createElement('a');
+    row.className = 'github-row';
+    row.href = `https://github.com/${encodeURIComponent(name)}`;
+
+    const dot = document.createElement('span');
+    dot.className = 'svc-dot ' + (info.ok && info.lastYear > 0 ? 'up' : 'down');
+    row.appendChild(dot);
+
+    const user = document.createElement('span');
+    user.className = 'github-user';
+    user.textContent = name;
+    row.appendChild(user);
+
+    const count = document.createElement('span');
+    count.className = 'github-count';
+    if (!info.ok) {
+      count.textContent = 'unavailable';
+      count.classList.add('github-error');
+    } else {
+      count.textContent = `${info.lastYear} in last year`;
+    }
+    row.appendChild(count);
+
+    list.appendChild(row);
+  });
+  body.appendChild(list);
+
+  const note = document.createElement('div');
+  note.className = 'svc-note';
+  note.textContent = cache && cache.updatedAt ? `Updated ${githubTimeAgo(cache.updatedAt)}` : '';
+  body.appendChild(note);
+
+  card.appendChild(body);
+  container.appendChild(card);
+}
+
+async function loadAndRenderGithub() {
+  const container = document.getElementById('github-container');
+  if (!container) return;
+
+  const cache = await readGithubCache();
+  renderGithubCard(cache);
+
+  // Cold cache -> ask the background to populate it once, then re-render. The
+  // background coalesces concurrent requests, so opening several tabs at once
+  // still results in a single fetch per user.
+  if (!cache || !cache.users || Object.keys(cache.users).length === 0) {
+    const resp = await requestGithubRefresh(false);
+    renderGithubCard(resp && resp.data ? resp.data : await readGithubCache());
+  }
+}
+
 class Stopwatch {
   constructor() {
     this.startTime = 0;
@@ -1011,6 +1142,7 @@ document.addEventListener('DOMContentLoaded', () => {
   updateTime();
   setInterval(updateTime, 1000);
   loadAndRenderLinks();
+  loadAndRenderGithub();
   new Stopwatch();
   initializeTabSorting();
   initializeChordifyExtraction();

@@ -6,6 +6,10 @@
         "chatgpt.com",
         "claude.ai"
     ],
+    "githubWatch": [
+        "torvalds",
+        "gaearon"
+    ],
     "categories": [
         {
             "name": "AI Tools",

@@ -423,6 +423,108 @@ async function extractChordifyTabs() {
   }
 }
 
+// ============================================================================
+// GITHUB CONTRIBUTION MONITOR
+// Fetches public contribution counts for a watched set of usernames from the
+// jogruber contributions API (no auth; returns the same numbers GitHub renders
+// on the profile calendar).
+//
+// WHY this lives here and not in newtab.js: the new tab page opens constantly,
+// so fetching there would hit the API once per watched user PER TAB OPEN. This
+// script is the single fetch path, driven by a chrome.alarms timer, and writes
+// results to storage.local. Every new tab only READS that cache. So API load is
+// fixed at (watched users x 24h/GH_REFRESH_HOURS) per day, independent of how
+// many tabs get opened.
+// ============================================================================
+const GH_CACHE_KEY = 'githubContrib';
+const GH_ALARM = 'github-refresh';
+const GH_REFRESH_HOURS = 6; // timer cadence; contribution totals move at most daily
+const GH_STALE_MS = GH_REFRESH_HOURS * 60 * 60 * 1000; // only refetch entries older than this
+const GH_API = 'https://github-contributions-api.jogruber.de/v4/';
+
+// Coalesce concurrent refreshes: opening several new tabs on a cold cache fires
+// several refresh messages at once, but they share this one in-flight promise.
+let ghRefreshInFlight = null;
+
+// Resolve the watch list with the same precedence ConfigManager uses in the
+// page: user-edited storage first, then the per-machine file, then the example.
+async function ghGetWatchList() {
+  try {
+    const { pageConfig } = await browserAPI.storage.local.get('pageConfig');
+    if (pageConfig && Array.isArray(pageConfig.githubWatch)) return pageConfig.githubWatch;
+  } catch (e) { /* storage unavailable */ }
+  for (const file of ['personal-config.json', 'links.json']) {
+    try {
+      const res = await fetch(browserAPI.runtime.getURL(file));
+      if (res.ok) {
+        const cfg = await res.json();
+        if (Array.isArray(cfg.githubWatch)) return cfg.githubWatch;
+      }
+    } catch (e) { /* file absent */ }
+  }
+  return [];
+}
+
+async function ghFetchUser(username) {
+  // ?y=last -> trailing 365 days, which is the "recent contributions" number.
+  const res = await fetch(`${GH_API}${encodeURIComponent(username)}?y=last`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  return { lastYear: (data.total && data.total.lastYear) || 0, fetchedAt: Date.now(), ok: true };
+}
+
+async function ghRefresh(force = false) {
+  if (ghRefreshInFlight) return ghRefreshInFlight;
+  ghRefreshInFlight = (async () => {
+    const watch = await ghGetWatchList();
+    const stored = (await browserAPI.storage.local.get(GH_CACHE_KEY))[GH_CACHE_KEY] || { users: {} };
+    const users = { ...stored.users };
+    const now = Date.now();
+    for (const name of watch) {
+      const prev = users[name];
+      const fresh = prev && prev.ok && (now - prev.fetchedAt) < GH_STALE_MS;
+      if (!force && fresh) continue; // skip still-fresh entries -> no needless request
+      try {
+        users[name] = await ghFetchUser(name);
+      } catch (err) {
+        users[name] = { ok: false, error: String(err.message || err), fetchedAt: now };
+      }
+      await new Promise(r => setTimeout(r, 200)); // gentle pacing between users
+    }
+    // Forget anyone dropped from the watch list.
+    for (const name of Object.keys(users)) {
+      if (!watch.includes(name)) delete users[name];
+    }
+    const payload = { users, updatedAt: now };
+    await browserAPI.storage.local.set({ [GH_CACHE_KEY]: payload });
+    return payload;
+  })();
+  try {
+    return await ghRefreshInFlight;
+  } finally {
+    ghRefreshInFlight = null;
+  }
+}
+
+// alarms.create with the same name just resets the schedule, so this is safe to
+// call whenever the event page spins up.
+function ghEnsureAlarm() {
+  if (browserAPI.alarms) browserAPI.alarms.create(GH_ALARM, { periodInMinutes: GH_REFRESH_HOURS * 60 });
+}
+if (browserAPI.alarms && browserAPI.alarms.onAlarm) {
+  browserAPI.alarms.onAlarm.addListener(alarm => {
+    if (alarm.name === GH_ALARM) ghRefresh(false);
+  });
+}
+if (browserAPI.runtime.onInstalled) {
+  browserAPI.runtime.onInstalled.addListener(() => { ghEnsureAlarm(); ghRefresh(false); });
+}
+if (browserAPI.runtime.onStartup) {
+  browserAPI.runtime.onStartup.addListener(() => { ghEnsureAlarm(); ghRefresh(false); });
+}
+ghEnsureAlarm(); // NOTE: only (re)arm the timer here -- do NOT refresh on every
+                 // event-page wake, or a message-triggered wake would refetch.
+
 // IMPORTANT: Set up message listener to receive requests from newtab.js
 browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Background script received message:', request);
@@ -459,6 +561,14 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
   
+  if (request.action === 'refreshGithub') {
+    // force:true bypasses the per-user staleness guard (used by the Refresh button).
+    ghRefresh(!!request.force)
+      .then(payload => sendResponse({ success: true, data: payload }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
   if (request.action === 'moveEntertainment') {
     console.log('Move entertainment action requested with domains:', request.entertainmentDomains);
     
