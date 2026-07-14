@@ -378,13 +378,6 @@ body.edit-mode .category-section {
     margin-bottom: 1rem;
 }
 
-/* Export config textarea */
-.config-export-textarea {
-    font-family: 'Consolas', 'Monaco', monospace;
-    font-size: 0.85rem;
-    background: #f8f9fa;
-}
-
 /* GitHub contribution monitor card */
 .github-list {
     display: flex;

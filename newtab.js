@@ -34,6 +34,7 @@ class ConfigManager {
     await this.loadConfig();
     this.setupEditToggle();
     this.setupExportButton();
+    this.setupImportButton();
   }
 
   async loadConfig() {
@@ -158,7 +159,16 @@ class ConfigManager {
   setupExportButton() {
     const exportBtn = document.getElementById('export-config-btn');
     if (exportBtn) {
-      exportBtn.addEventListener('click', () => this.showExportModal());
+      exportBtn.addEventListener('click', () => this.exportConfig());
+    }
+  }
+
+  setupImportButton() {
+    const importBtn = document.getElementById('import-config-btn');
+    const fileInput = document.getElementById('import-config-file-input');
+    if (importBtn && fileInput) {
+      importBtn.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', (e) => this.handleImportConfigFile(e));
     }
   }
 
@@ -175,57 +185,31 @@ class ConfigManager {
     };
   }
 
-  showExportModal() {
-    const modal = document.getElementById('export-config-modal');
-    const textarea = document.getElementById('export-config-json');
-    if (modal && textarea) {
-      textarea.value = JSON.stringify(this.getExportData(), null, 2);
-      const bsModal = new bootstrap.Modal(modal);
-      bsModal.show();
-      
-      // Setup copy button
-      const copyBtn = document.getElementById('copy-config-btn');
-      if (copyBtn) {
-        copyBtn.onclick = async () => {
-          try {
-            await navigator.clipboard.writeText(textarea.value);
-            copyBtn.textContent = 'Copied!';
-            setTimeout(() => copyBtn.textContent = 'Copy to Clipboard', 2000);
-          } catch (e) {
-            textarea.select();
-            document.execCommand('copy');
-            copyBtn.textContent = 'Copied!';
-            setTimeout(() => copyBtn.textContent = 'Copy to Clipboard', 2000);
-          }
-        };
+  exportConfig() {
+    const jsonStr = JSON.stringify(this.getExportData(), null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `meh-tabs-config_${new Date().toISOString()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  handleImportConfigFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      if (confirm('Import configuration from this file? This will overwrite your current links and settings.')) {
+        const success = await this.importConfig(event.target.result);
+        if (success) alert('Configuration imported successfully!');
       }
-      
-      // Setup import button
-      const importBtn = document.getElementById('import-config-btn');
-      if (importBtn) {
-        importBtn.onclick = async () => {
-          try {
-            const text = await navigator.clipboard.readText();
-            if (text && confirm('Import configuration from clipboard? This will overwrite your current settings.')) {
-              const success = await this.importConfig(text);
-              if (success) {
-                bsModal.hide();
-                alert('Configuration imported successfully!');
-              }
-            }
-          } catch (e) {
-            const text = prompt('Paste your JSON configuration:');
-            if (text) {
-              const success = await this.importConfig(text);
-              if (success) {
-                bsModal.hide();
-                alert('Configuration imported successfully!');
-              }
-            }
-          }
-        };
-      }
-    }
+      e.target.value = ''; // allow re-selecting the same file
+    };
+    reader.readAsText(file);
   }
 
   async importConfig(jsonString) {

@@ -230,6 +230,27 @@ This allows you to:
 
 **Important:** Both `personal-config.json` and `links.json` are gitignored. Use `links.json.example` as your reference for the proper file structure.
 
+### Moving Your Config to Another Machine
+
+After the first load, your live configuration lives in the browser's local
+storage (`storage.local`), **not** in the config files. `personal-config.json`
+and `links.json` only *seed* storage on a fresh profile and are ignored on any
+profile you have already used — so editing them will not update an existing
+install.
+
+To carry your links, priority domains, GitHub watch list, and entertainment-
+domain rules to a new box, use the built-in Export/Import (it round-trips the
+whole live `storage.local` state):
+
+1. On the source machine, open a new tab and click **Export Config**, then
+   **Copy to Clipboard** in the modal.
+2. Save that JSON with your other private per-machine setup files. It is not
+   secret, but it is personal — keep it out of the public repo (this repo is
+   public).
+3. On the new machine, install the extension, copy your saved JSON to the
+   clipboard, open a new tab, click **Export Config**, then **Import from
+   Clipboard** and confirm the overwrite.
+
 ### Adding Links
 
 Edit `links.json` or create/edit `personal-config.json` with your categories and links.
