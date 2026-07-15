@@ -20,7 +20,6 @@
       <button id="edit-config-btn" class="btn btn-sm btn-outline-secondary ms-3">Edit</button>
       <button id="export-config-btn" class="btn btn-sm btn-outline-info ms-1">Export Config</button>
       <button id="import-config-btn" class="btn btn-sm btn-outline-info ms-1">Import Config</button>
-      <input type="file" id="import-config-file-input" class="hidden" accept=".json">
     </div>
     <div class="d-flex justify-content-between align-items-center mb-4">
       <div>
@@ -101,6 +100,29 @@
       <button type="submit" class="search-button">Search</button>
     </div>
   </form>
+
+  <!-- Import Config Modal -->
+  <div class="modal fade" id="import-config-modal" tabindex="-1" aria-labelledby="importConfigModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="importConfigModalLabel">Import Configuration</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted small">Paste your configuration JSON below, then click Import. This overwrites your
+            current links and settings.</p>
+          <textarea id="import-config-json" class="form-control font-monospace" rows="15"
+            placeholder="Paste config JSON here..."></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" id="import-config-confirm-btn">Import</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="todo.js"></script>
   <script src="newtab.js"></script>

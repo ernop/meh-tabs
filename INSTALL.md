@@ -242,14 +242,14 @@ To carry your links, priority domains, GitHub watch list, and entertainment-
 domain rules to a new box, use the built-in Export/Import (it round-trips the
 whole live `storage.local` state):
 
-1. On the source machine, open a new tab and click **Export Config**, then
-   **Copy to Clipboard** in the modal.
+1. On the source machine, open a new tab and click **Export Config**. This
+   downloads a `meh-tabs-config_<timestamp>.json` file.
 2. Save that JSON with your other private per-machine setup files. It is not
    secret, but it is personal — keep it out of the public repo (this repo is
    public).
-3. On the new machine, install the extension, copy your saved JSON to the
-   clipboard, open a new tab, click **Export Config**, then **Import from
-   Clipboard** and confirm the overwrite.
+3. On the new machine, install the extension, open a new tab, click **Import
+   Config**, paste the JSON into the box, and click **Import**. This overwrites
+   the current config.
 
 ### Adding Links
 

@@ -165,11 +165,28 @@ class ConfigManager {
 
   setupImportButton() {
     const importBtn = document.getElementById('import-config-btn');
-    const fileInput = document.getElementById('import-config-file-input');
-    if (importBtn && fileInput) {
-      importBtn.addEventListener('click', () => fileInput.click());
-      fileInput.addEventListener('change', (e) => this.handleImportConfigFile(e));
-    }
+    const modalEl = document.getElementById('import-config-modal');
+    const textarea = document.getElementById('import-config-json');
+    const confirmBtn = document.getElementById('import-config-confirm-btn');
+    if (!importBtn || !modalEl || !textarea || !confirmBtn) return;
+
+    const modal = new bootstrap.Modal(modalEl);
+    modalEl.addEventListener('shown.bs.modal', () => textarea.focus());
+
+    importBtn.addEventListener('click', () => {
+      textarea.value = '';
+      modal.show();
+    });
+
+    confirmBtn.addEventListener('click', async () => {
+      const text = textarea.value.trim();
+      if (!text) return;
+      const success = await this.importConfig(text);
+      if (success) {
+        modal.hide();
+        alert('Configuration imported successfully!');
+      }
+    });
   }
 
   getExportData() {
@@ -196,20 +213,6 @@ class ConfigManager {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }
-
-  handleImportConfigFile(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      if (confirm('Import configuration from this file? This will overwrite your current links and settings.')) {
-        const success = await this.importConfig(event.target.result);
-        if (success) alert('Configuration imported successfully!');
-      }
-      e.target.value = ''; // allow re-selecting the same file
-    };
-    reader.readAsText(file);
   }
 
   async importConfig(jsonString) {
