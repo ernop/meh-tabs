@@ -454,15 +454,13 @@ async function ghGetWatchList() {
     const { githubWatch } = await browserAPI.storage.local.get('githubWatch');
     if (Array.isArray(githubWatch)) return githubWatch;
   } catch (e) { /* storage unavailable */ }
-  for (const file of ['personal-config.json', 'links.json']) {
-    try {
-      const res = await fetch(browserAPI.runtime.getURL(file));
-      if (res.ok) {
-        const cfg = await res.json();
-        if (Array.isArray(cfg.githubWatch)) return cfg.githubWatch;
-      }
-    } catch (e) { /* file absent */ }
-  }
+  try {
+    const res = await fetch(browserAPI.runtime.getURL('personal-config.json'));
+    if (res.ok) {
+      const cfg = await res.json();
+      if (Array.isArray(cfg.githubWatch)) return cfg.githubWatch;
+    }
+  } catch (e) { /* file absent */ }
   return [];
 }
 

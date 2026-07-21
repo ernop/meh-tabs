@@ -38,40 +38,38 @@ class ConfigManager {
   }
 
   async loadConfig() {
+    // storage.local is the single source of truth. It's seeded once from the
+    // committed personal-config.json on a fresh machine, then persisted, so
+    // every later load reads storage. Edit links via the UI or Import config --
+    // editing personal-config.json by hand no longer changes an already-seeded
+    // tab (that ambiguity is what the storage-first-then-file chain used to hide).
     try {
-      // Try localStorage first (user customizations take priority)
       const result = await this.browserAPI.storage.local.get(this.storageKey);
       if (result[this.storageKey]) {
         this.config = result[this.storageKey];
-        console.log('Loaded config from localStorage');
+        console.log('Loaded config from storage');
         return;
       }
     } catch (e) {
-      console.log('localStorage not available, falling back to file');
+      console.log('storage unavailable, seeding from file');
     }
 
-    // Fall back to file-based config
+    // First run: seed once from personal-config.json and persist to storage.
     try {
       const personalConfigUrl = this.browserAPI.runtime.getURL('personal-config.json');
       const response = await fetch(personalConfigUrl);
       if (response.ok) {
         this.config = await response.json();
-        console.log('Loaded personal-config.json');
+        console.log('Seeded config from personal-config.json');
+        await this.saveConfig();
         return;
       }
     } catch (e) {
       console.log('personal-config.json not found');
     }
 
-    try {
-      const linksUrl = this.browserAPI.runtime.getURL('links.json');
-      const response = await fetch(linksUrl);
-      this.config = await response.json();
-      console.log('Loaded links.json');
-    } catch (e) {
-      console.error('Failed to load any config');
-      this.config = { categories: [] };
-    }
+    console.warn('No config found; starting with an empty set');
+    this.config = { categories: [] };
   }
 
   async saveConfig() {
@@ -408,6 +406,8 @@ async function fetchCaddyServices() {
     .map(s => ({
       name: s.label || s.hostname || s.url,
       href: s.url || (s.hostname ? 'http://' + s.hostname : '#'),
+      hostname: s.hostname || '',
+      port: s.port || null,
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -423,6 +423,14 @@ function createLocalServiceCard(link) {
   icon.className = 'fa-solid fa-server';
   a.appendChild(icon);
   a.appendChild(document.createTextNode(' ' + link.name));
+  // Metadata: the host:port this points at, so the row shows where it actually goes.
+  if (link.hostname) {
+    const meta = document.createElement('span');
+    meta.className = 'text-muted ms-2';
+    meta.style.fontSize = '0.8em';
+    meta.textContent = link.port ? `${link.hostname}:${link.port}` : link.hostname;
+    a.appendChild(meta);
+  }
   wrapper.appendChild(a);
   return wrapper;
 }
@@ -525,7 +533,7 @@ async function loadAndRenderLinks() {
 // The watch list lives in storage.local under `githubWatch`, exactly like the
 // entertainment domain list -- so it survives without any per-machine file and
 // rides along in the Export/Import config JSON. On a fresh machine the list is
-// seeded once from the committed config file (personal-config.json/links.json),
+// seeded once from the committed config file (personal-config.json),
 // after which the live store is authoritative.
 // ============================================================================
 const GH_CACHE_KEY = 'githubContrib';
@@ -556,19 +564,17 @@ async function loadGithubWatchList() {
     }
   } catch (e) { /* storage unavailable */ }
 
-  for (const file of ['personal-config.json', 'links.json']) {
-    try {
-      const res = await fetch(api.runtime.getURL(file));
-      if (res.ok) {
-        const cfg = await res.json();
-        if (Array.isArray(cfg.githubWatch)) {
-          githubWatchList = cfg.githubWatch;
-          await saveGithubWatchList(githubWatchList); // seed the live store
-          return githubWatchList;
-        }
+  try {
+    const res = await fetch(api.runtime.getURL('personal-config.json'));
+    if (res.ok) {
+      const cfg = await res.json();
+      if (Array.isArray(cfg.githubWatch)) {
+        githubWatchList = cfg.githubWatch;
+        await saveGithubWatchList(githubWatchList); // seed the live store
+        return githubWatchList;
       }
-    } catch (e) { /* file absent */ }
-  }
+    }
+  } catch (e) { /* file absent */ }
   githubWatchList = [];
   return githubWatchList;
 }
