@@ -2,7 +2,7 @@
     "policies":  {
                      "Extensions":  {
                                         "Install":  [
-                                                        "http://localhost:8730/custom-new-tab-1.0.19.xpi"
+                                                        "http://localhost:8730/custom-new-tab-1.0.20.xpi"
                                                     ]
                                     }
                  }

@@ -32,6 +32,7 @@ class ConfigManager {
 
   async init() {
     await this.loadConfig();
+    await this.applyConfigMigrations();
     this.setupEditToggle();
     this.setupExportButton();
     this.setupImportButton();
@@ -70,6 +71,28 @@ class ConfigManager {
 
     console.warn('No config found; starting with an empty set');
     this.config = { categories: [] };
+  }
+
+  async applyConfigMigrations() {
+    const migrationKey = 'configMigrationFusekiRecent';
+    const result = await this.browserAPI.storage.local.get(migrationKey);
+    if (result[migrationKey]) return;
+
+    const category = (this.config.categories || [])
+      .find(item => item.name.trim().toLowerCase() === 'fuseki');
+    if (!category) return;
+
+    if (!category.links.some(link => link.href === 'https://fuseki.net/recent')) {
+      category.links.push({
+        name: 'Recent',
+        href: 'https://fuseki.net/recent',
+        category: category.name,
+        emoji: ''
+      });
+      await this.saveConfig();
+    }
+
+    await this.browserAPI.storage.local.set({ [migrationKey]: true });
   }
 
   async saveConfig() {
