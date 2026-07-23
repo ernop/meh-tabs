@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Custom New Tab",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "Replaces the new tab page with a custom page featuring quick links, todo list, and tab management",
   "icons": {
     "32": "icons/icon-32.png",

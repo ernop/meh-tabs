@@ -3,8 +3,8 @@
                    "custom-new-tab@yourname.com":  {
                                                        "updates":  [
                                                                        {
-                                                                           "version":  "1.0.17",
-                                                                           "update_link":  "http://localhost:8730/afbf11016ec54c478061-1.0.17.xpi"
+                                                                           "version":  "1.0.19",
+                                                                           "update_link":  "http://localhost:8730/custom-new-tab-1.0.19.xpi"
                                                                        }
                                                                    ]
                                                    }
