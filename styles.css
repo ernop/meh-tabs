@@ -278,6 +278,13 @@ button:hover,
     font-size: 1.1rem;
 }
 
+/* Big header for the pinned "Fuseki Live" section at the top of the page. */
+.category-header .fuseki-live-header {
+    margin-bottom: 0;
+    font-size: 2.1rem;
+    font-weight: 700;
+}
+
 /* ============================================================================
    EDIT MODE STYLES
    ============================================================================ */

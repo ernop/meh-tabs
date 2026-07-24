@@ -352,23 +352,23 @@ function showAddLinkDialog(categoryName) {
   configManager.addLink(categoryName, name, href, emoji || '');
 }
 
-function createCategorySectionElement(category) {
+function createCategorySectionElement(category, opts = {}) {
   const section = document.createElement('div');
   section.className = 'category-section';
   section.dataset.category = category.name;
-  
+
   const header = document.createElement('div');
   header.className = 'category-header';
-  
+
   const h2 = document.createElement('h2');
-  h2.className = 'h4';
-  
+  h2.className = opts.large ? 'fuseki-live-header' : 'h4';
+
   if (category.emoji) {
     const icon = document.createElement('i');
     icon.className = category.emoji + ' me-2';
     h2.appendChild(icon);
   }
-  h2.appendChild(document.createTextNode(category.name));
+  h2.appendChild(document.createTextNode(opts.displayName || category.name));
   
   // Edit mode: remove category button
   const removeCatBtn = document.createElement('button');
@@ -514,14 +514,30 @@ function renderLinks() {
   if (!container || !configManager) return;
 
   const categories = configManager.getCategories();
+  const isFuseki = c => c.name.trim().toLowerCase() === 'fuseki';
 
-  // Clear and rebuild using DOM methods
+  // Fuseki pinned to the very top with a large "Fuseki Live" header.
+  const fusekiTop = document.getElementById('fuseki-top-container');
+  if (fusekiTop) {
+    fusekiTop.textContent = '';
+    const fuseki = categories.find(isFuseki);
+    if (fuseki) {
+      fusekiTop.appendChild(
+        createCategorySectionElement(fuseki, { displayName: 'Fuseki Live', large: true })
+      );
+    }
+  }
+
+  // Auto-synced Local Services section (from Caddy) directly below Fuseki.
+  const localBox = document.getElementById('local-services-container');
+  if (localBox) {
+    localBox.textContent = '';
+    renderLocalServices(localBox);
+  }
+
+  // Every other category renders below the search box.
   container.textContent = '';
-
-  // Auto-synced Local Services section (from Caddy), shown first.
-  renderLocalServices(container);
-
-  categories.forEach(category => {
+  categories.filter(c => !isFuseki(c)).forEach(category => {
     container.appendChild(createCategorySectionElement(category));
   });
 

@@ -39,6 +39,21 @@
       </div>
     </div>
 
+    <!-- Pinned top block: Fuseki Live, then Local Services, then Google search. -->
+    <div id="fuseki-top-container"></div>
+    <div id="local-services-container"></div>
+
+    <form action="https://www.google.com/search" method="GET" class="search-container mb-4">
+      <div class="search-form">
+        <input type="search" name="q" placeholder="Search Google..." autofocus class="search-input">
+        <button type="submit" class="search-button">Search</button>
+      </div>
+    </form>
+
+    <!-- Everything below the top block: other link categories, then config/features. -->
+    <div id="categories-container"></div>
+    <div id="github-container"></div>
+
     <div class="card mb-4">
       <div class="card-header">
         <h5 class="mb-0">Entertainment Domain List</h5>
@@ -56,8 +71,6 @@
         <div id="entertainment-domains-list" class="entertainment-list"></div>
       </div>
     </div>
-    <div id="github-container"></div>
-    <div id="categories-container"></div>
   </div>
   <div class="container todo-container mb-4">
     <div class="card">
@@ -93,13 +106,6 @@
     <input type="file" id="import-file-input" class="hidden" accept=".json">
     <button id="import-todos" class="btn btn-sm btn-outline-secondary">Import Todos</button>
   </div>
-
-  <form action="https://www.google.com/search" method="GET" class="container search-container">
-    <div class="search-form">
-      <input type="search" name="q" placeholder="Search Google..." autofocus class="search-input">
-      <button type="submit" class="search-button">Search</button>
-    </div>
-  </form>
 
   <!-- Import Config Modal -->
   <div class="modal fade" id="import-config-modal" tabindex="-1" aria-labelledby="importConfigModalLabel"
