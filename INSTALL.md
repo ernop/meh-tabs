@@ -4,22 +4,17 @@
 
 ### Initial Setup (First Time Only)
 
-Before installing the extension, set up your personal configuration:
+The page's config is **not** bundled in the extension — it is served locally by
+Caddy from `mybrowser/utilities/caddy/site/newtab-config.json` (a private repo),
+read at `http://home.localhost/newtab-config.json`. So the setup is:
 
-1. **Create your personal config file:**
-   ```powershell
-   # Copy the example to create your personal config
-   Copy-Item links.json.example personal-config.json
-   ```
+1. **Clone `mybrowser` and bring up Caddy + the launcher** on this machine
+   (`utilities/caddy/linux/install-caddy-proxy-linux.sh`). That serves both the
+   Local Services list and `newtab-config.json`.
+2. **Install the extension** (below). On first new tab it reads the served config
+   and renders — no per-machine file to create, no paste.
 
-2. **Edit `personal-config.json`** with your favorite links and personal URLs
-   - This file is gitignored so your personal data stays private
-   - You can add personal Google Docs, specific project links, etc.
-
-3. **(Optional) Set up Chrome extension variant:**
-   ```powershell
-   Copy-Item chrome-extension\links.json.example chrome-extension\personal-config.json
-   ```
+Full multi-machine walkthrough: `mybrowser/docs/newtab-laptop-setup.md`.
 
 ### Method 1: Temporary Installation (For Development/Testing)
 

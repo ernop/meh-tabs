@@ -30,3 +30,4 @@ links.json
 # AMO API credentials - never commit
 amo-credentials.local
 *.local
+docs/private/

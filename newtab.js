@@ -19,12 +19,62 @@ function setAppVersion() {
 }
 
 // ============================================================================
-// CONFIG MANAGER - Handles localStorage-based config with edit capabilities
+// REMOTE CONFIG -- single source of truth, served by Caddy from the private
+// mybrowser repo (utilities/caddy/site/newtab-config.json), loopback-only.
+// The page READS it at http://home.localhost/newtab-config.json and WRITES edits
+// back through the launcher (POST /api/newtab-config on 127.0.0.1:8787, which
+// Caddy proxies). No browser storage holds config anymore, so `git pull` on
+// another box brings the whole page config -- no seeding, no per-machine file,
+// no paste. (The one remaining storage.local use is the GitHub contribution
+// COUNTS cache in background.js -- refetchable API data, not config.)
+// ============================================================================
+const CONFIG_READ_URL = 'http://home.localhost/newtab-config.json';
+const CONFIG_WRITE_URL = 'http://home.localhost/api/newtab-config';
+
+// One in-memory copy, loaded once and mutated in place by the managers below,
+// then written back whole. Shape: { megaPriority, categories,
+// entertainmentDomains, githubWatch }.
+let remoteConfig = {
+  megaPriority: [], categories: [], entertainmentDomains: [], githubWatch: []
+};
+
+// Load exactly once; every manager awaits this same promise, so there's a single
+// fetch shared across ConfigManager, entertainment domains, and the GitHub list.
+let _remoteConfigPromise = null;
+function ensureRemoteConfig() {
+  if (!_remoteConfigPromise) _remoteConfigPromise = loadRemoteConfig();
+  return _remoteConfigPromise;
+}
+
+async function loadRemoteConfig() {
+  const res = await fetch(CONFIG_READ_URL, { cache: 'no-store' });
+  if (!res.ok) throw new Error('newtab-config.json ' + res.status);
+  const data = await res.json();
+  remoteConfig = {
+    megaPriority: data.megaPriority || [],
+    categories: data.categories || [],
+    entertainmentDomains: data.entertainmentDomains || [],
+    githubWatch: data.githubWatch || [],
+  };
+  return remoteConfig;
+}
+
+// Persist the whole config back to the served file via the launcher. Reads keep
+// working with Caddy alone; only editing needs the launcher up (like Start/Stop).
+async function saveRemoteConfig() {
+  const res = await fetch(CONFIG_WRITE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'launcher' },
+    body: JSON.stringify(remoteConfig),
+  });
+  if (!res.ok) throw new Error('config save failed: ' + res.status);
+}
+
+// ============================================================================
+// CONFIG MANAGER - links/categories view over the shared remoteConfig
 // ============================================================================
 class ConfigManager {
   constructor() {
-    this.browserAPI = window.browser || window.chrome;
-    this.storageKey = 'pageConfig';
     this.config = null;
     this.editMode = false;
     this.onConfigChange = null; // callback when config changes
@@ -32,75 +82,26 @@ class ConfigManager {
 
   async init() {
     await this.loadConfig();
-    await this.applyConfigMigrations();
     this.setupEditToggle();
     this.setupExportButton();
     this.setupImportButton();
   }
 
   async loadConfig() {
-    // storage.local is the single source of truth. It's seeded once from the
-    // committed personal-config.json on a fresh machine, then persisted, so
-    // every later load reads storage. Edit links via the UI or Import config --
-    // editing personal-config.json by hand no longer changes an already-seeded
-    // tab (that ambiguity is what the storage-first-then-file chain used to hide).
-    try {
-      const result = await this.browserAPI.storage.local.get(this.storageKey);
-      if (result[this.storageKey]) {
-        this.config = result[this.storageKey];
-        console.log('Loaded config from storage');
-        return;
-      }
-    } catch (e) {
-      console.log('storage unavailable, seeding from file');
-    }
-
-    // First run: seed once from personal-config.json and persist to storage.
-    try {
-      const personalConfigUrl = this.browserAPI.runtime.getURL('personal-config.json');
-      const response = await fetch(personalConfigUrl);
-      if (response.ok) {
-        this.config = await response.json();
-        console.log('Seeded config from personal-config.json');
-        await this.saveConfig();
-        return;
-      }
-    } catch (e) {
-      console.log('personal-config.json not found');
-    }
-
-    console.warn('No config found; starting with an empty set');
-    this.config = { categories: [] };
-  }
-
-  async applyConfigMigrations() {
-    const migrationKey = 'configMigrationFusekiRecent';
-    const result = await this.browserAPI.storage.local.get(migrationKey);
-    if (result[migrationKey]) return;
-
-    const category = (this.config.categories || [])
-      .find(item => item.name.trim().toLowerCase() === 'fuseki');
-    if (!category) return;
-
-    if (!category.links.some(link => link.href === 'https://fuseki.net/recent')) {
-      category.links.push({
-        name: 'Recent',
-        href: 'https://fuseki.net/recent',
-        category: category.name,
-        emoji: ''
-      });
-      await this.saveConfig();
-    }
-
-    await this.browserAPI.storage.local.set({ [migrationKey]: true });
+    // The Caddy-served file is the single source of truth: no storage seeding,
+    // no personal-config.json, no Fuseki-URL derivation migrations -- the file
+    // already holds the real links, including the private fuseki.net admin URLs.
+    await ensureRemoteConfig();
+    this.config = remoteConfig; // same reference: edits mutate remoteConfig
   }
 
   async saveConfig() {
     try {
-      await this.browserAPI.storage.local.set({ [this.storageKey]: this.config });
-      console.log('Config saved to localStorage');
+      await saveRemoteConfig();
+      console.log('Config saved to newtab-config.json');
     } catch (e) {
       console.error('Failed to save config:', e);
+      alert('Could not save config -- is the launcher running?\n' + e.message);
     }
   }
 
@@ -211,16 +212,13 @@ class ConfigManager {
   }
 
   getExportData() {
-    // Combine config with entertainment domains for full export
-    const entertainmentDomains = entertainmentDomainManager 
-      ? entertainmentDomainManager.getEntertainmentDomains() 
-      : [];
-    
-    return {
-      ...this.config,
-      entertainmentDomains,
-      githubWatch: githubWatchList
-    };
+    // this.config IS remoteConfig; refresh its live slices from the managers so
+    // an export always matches what's currently on screen, then export the whole.
+    if (entertainmentDomainManager) {
+      remoteConfig.entertainmentDomains = entertainmentDomainManager.getEntertainmentDomains();
+    }
+    remoteConfig.githubWatch = githubWatchList;
+    return remoteConfig;
   }
 
   exportConfig() {
@@ -240,19 +238,25 @@ class ConfigManager {
     try {
       const data = JSON.parse(jsonString);
       if (data.categories) {
-        this.config = { categories: data.categories, megaPriority: data.megaPriority || [] };
+        // Merge every slice into the shared remoteConfig, then write it once.
+        remoteConfig.categories = data.categories;
+        remoteConfig.megaPriority = data.megaPriority || [];
+        if (Array.isArray(data.entertainmentDomains)) {
+          remoteConfig.entertainmentDomains = data.entertainmentDomains;
+        }
+        if (Array.isArray(data.githubWatch)) {
+          remoteConfig.githubWatch = data.githubWatch;
+        }
+        this.config = remoteConfig;
         await this.saveConfig();
-        
-        // Also import entertainment domains if present
-        if (data.entertainmentDomains && entertainmentDomainManager) {
-          entertainmentDomainManager.entertainmentDomains = data.entertainmentDomains;
-          await entertainmentDomainManager.saveEntertainmentDomains();
+
+        // Reflect the imported slices in the other managers' live UIs.
+        if (Array.isArray(data.entertainmentDomains) && entertainmentDomainManager) {
+          entertainmentDomainManager.entertainmentDomains = remoteConfig.entertainmentDomains;
           entertainmentDomainManager.renderEntertainmentList();
         }
-
-        // Also import the GitHub watch list if present
         if (Array.isArray(data.githubWatch)) {
-          await saveGithubWatchList(data.githubWatch);
+          githubWatchList = remoteConfig.githubWatch;
           await renderGithubCard(await readGithubCache());
           requestGithubRefresh(false); // fetch any newly-imported users
         }
@@ -553,14 +557,12 @@ async function loadAndRenderLinks() {
 // fetch path (see background.js for why). Here we render the cached counts and
 // let the user add/remove watched usernames right in the tab.
 //
-// The watch list lives in storage.local under `githubWatch`, exactly like the
-// entertainment domain list -- so it survives without any per-machine file and
-// rides along in the Export/Import config JSON. On a fresh machine the list is
-// seeded once from the committed config file (personal-config.json),
-// after which the live store is authoritative.
+// The watch list is a slice of the Caddy-served config (remoteConfig.githubWatch),
+// so it syncs by git with everything else. The contribution COUNTS, by contrast,
+// are refetchable API data: the background script fetches them and caches them in
+// storage.local under GH_CACHE_KEY, and this page only reads that cache.
 // ============================================================================
 const GH_CACHE_KEY = 'githubContrib';
-const GH_WATCH_KEY = 'githubWatch';
 
 // In-memory mirror of the watch list so the (synchronous) config export can
 // include it, matching how entertainmentDomainManager exposes its list.
@@ -575,37 +577,18 @@ async function readGithubCache() {
   }
 }
 
-// Load the live watch list, seeding it once from the committed config file if
-// this machine has never stored one.
+// The watch list is a slice of the shared Caddy-served config.
 async function loadGithubWatchList() {
-  const api = window.browser || window.chrome;
-  try {
-    const result = await api.storage.local.get(GH_WATCH_KEY);
-    if (Array.isArray(result[GH_WATCH_KEY])) {
-      githubWatchList = result[GH_WATCH_KEY];
-      return githubWatchList;
-    }
-  } catch (e) { /* storage unavailable */ }
-
-  try {
-    const res = await fetch(api.runtime.getURL('personal-config.json'));
-    if (res.ok) {
-      const cfg = await res.json();
-      if (Array.isArray(cfg.githubWatch)) {
-        githubWatchList = cfg.githubWatch;
-        await saveGithubWatchList(githubWatchList); // seed the live store
-        return githubWatchList;
-      }
-    }
-  } catch (e) { /* file absent */ }
-  githubWatchList = [];
+  await ensureRemoteConfig();
+  githubWatchList = remoteConfig.githubWatch;
   return githubWatchList;
 }
 
 async function saveGithubWatchList(list) {
   githubWatchList = list;
+  remoteConfig.githubWatch = list;
   try {
-    await (window.browser || window.chrome).storage.local.set({ [GH_WATCH_KEY]: list });
+    await saveRemoteConfig();
   } catch (e) {
     console.error('Failed to save github watch list:', e);
   }
@@ -944,7 +927,6 @@ class EntertainmentDomainManager {
   constructor() {
     this.entertainmentDomains = [];
     this.browserAPI = window.browser || window.chrome;
-    this.storageKey = 'entertainmentDomains';
     this.removalTimeouts = new Map(); // Track pending removals
     
     this.elements = {
@@ -965,22 +947,18 @@ class EntertainmentDomainManager {
   }
   
   async loadEntertainmentDomains() {
-    try {
-      const result = await this.browserAPI.storage.local.get(this.storageKey);
-      this.entertainmentDomains = result[this.storageKey] || [];
-      console.log('Loaded entertainment domains:', this.entertainmentDomains);
-    } catch (error) {
-      console.error('Error loading entertainment domains:', error);
-      this.entertainmentDomains = [];
-    }
+    // A slice of the shared Caddy-served config -- no storage of its own.
+    await ensureRemoteConfig();
+    this.entertainmentDomains = remoteConfig.entertainmentDomains;
   }
-  
+
   async saveEntertainmentDomains() {
+    remoteConfig.entertainmentDomains = this.entertainmentDomains;
     try {
-      await this.browserAPI.storage.local.set({ [this.storageKey]: this.entertainmentDomains });
-      console.log('Saved entertainment domains:', this.entertainmentDomains);
+      await saveRemoteConfig();
     } catch (error) {
       console.error('Error saving entertainment domains:', error);
+      alert('Could not save -- is the launcher running?\n' + error.message);
     }
   }
   

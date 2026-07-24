@@ -446,21 +446,18 @@ const GH_API = 'https://github-contributions-api.jogruber.de/v4/';
 // several refresh messages at once, but they share this one in-flight promise.
 let ghRefreshInFlight = null;
 
-// Resolve the watch list: the live storage.local list (edited from the tab) is
-// authoritative; the committed config file is only a fallback used to seed a
-// fresh machine before the page has stored anything.
+// Resolve the watch list from the single source of truth: the Caddy-served
+// config (home.localhost/newtab-config.json), the same file the tab reads and
+// writes. No storage copy -- the watch list rides along with the rest of the
+// config by git. If Caddy is down there's simply nothing to fetch this cycle.
 async function ghGetWatchList() {
   try {
-    const { githubWatch } = await browserAPI.storage.local.get('githubWatch');
-    if (Array.isArray(githubWatch)) return githubWatch;
-  } catch (e) { /* storage unavailable */ }
-  try {
-    const res = await fetch(browserAPI.runtime.getURL('personal-config.json'));
+    const res = await fetch('http://home.localhost/newtab-config.json', { cache: 'no-store' });
     if (res.ok) {
       const cfg = await res.json();
       if (Array.isArray(cfg.githubWatch)) return cfg.githubWatch;
     }
-  } catch (e) { /* file absent */ }
+  } catch (e) { /* Caddy not reachable this cycle */ }
   return [];
 }
 

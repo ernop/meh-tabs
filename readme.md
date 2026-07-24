@@ -3,7 +3,7 @@
 Firefox-extensions monorepo. Two extensions built together here:
 
 1. **Custom New Tab** (this directory) — replaces the Firefox new tab page with:
-   - Quick links organized by category (edit in the UI or via `personal-config.json`)
+   - Quick links organized by category (edit in the UI; config is served by Caddy — see [Configuration](#configuration))
    - Real-time clock and date display
    - Built-in stopwatch
    - Todo list (drag-and-drop, export/import)
@@ -26,9 +26,9 @@ The extension is signed and unlisted on AMO. Download the XPI from your develope
 4. In Firefox: `about:addons` > gear icon > "Install Add-on From File"
 
 ### Personal Configuration
-1. Copy `links.json.example` to `personal-config.json`
-2. Edit with your links and categories
-3. The file is gitignored (won't be committed)
+The page's links/config are **not** bundled in the extension. They are served
+locally by Caddy from a file in a private repo — see [Configuration](#configuration).
+Nothing personal lives in this public repo or in the signed XPI.
 
 ## Updating the Extension
 
@@ -52,44 +52,54 @@ Then in Firefox: `about:addons` > gear icon > "Check for Updates"
 
 ## Configuration
 
-### Personal Configuration File
+### Single source: a Caddy-served file (no browser storage, no bundled config)
 
-The extension looks for `personal-config.json` first, then falls back to `links.json` if not found. This allows you to:
-- Keep your personal links and URLs private
-- Share the extension code publicly without exposing personal data
-- Have different configs for different environments
+The page's whole config — links/categories, `megaPriority` (tab-sort), the
+entertainment-domain list, and the GitHub watch list — lives in **one file**:
+
+```
+mybrowser/utilities/caddy/site/newtab-config.json   (private repo)
+```
+
+Caddy serves it **loopback-only** at `http://home.localhost/newtab-config.json`.
+The extension reads it at load, and in-UI edits POST back through the launcher
+(`http://home.localhost/api/newtab-config`, the `127.0.0.1:8787` dashboard
+service) which rewrites the file. So:
+
+- **Nothing personal is in this public repo or in the signed XPI** — the private
+  `fuseki.net` admin URLs sit in that private, loopback-only file directly. No
+  more storage seeding, no `personal-config.json`, no Fuseki-URL derivation.
+- **It syncs by git.** `git pull` on another machine brings the entire page.
+- **The only browser-storage use left is a cache** of GitHub contribution counts
+  (refetchable API data written by `background.js`), which is not config.
+
+Reads need only Caddy running; editing also needs the launcher (like the
+dashboard's Start/Stop). Multi-machine setup: `mybrowser/docs/newtab-laptop-setup.md`.
 
 ### Configuration Structure
 
 ```json
 {
-    "megaPriority": [
-        "domain1.com",
-        "domain2.com"
-    ],
+    "megaPriority": ["domain1.com", "domain2.com"],
     "categories": [
         {
             "name": "Category Name",
             "order": 1,
             "emoji": "fa-solid fa-icon-name",
             "links": [
-                {
-                    "name": "Link Name",
-                    "href": "https://example.com",
-                    "category": "Category Name",
-                    "emoji": "fa-solid fa-icon-name"
-                }
+                { "name": "Link Name", "href": "https://example.com", "category": "Category Name", "emoji": "fa-solid fa-icon-name" }
             ]
         }
-    ]
+    ],
+    "entertainmentDomains": ["youtube.com"],
+    "githubWatch": ["ernop"]
 }
 ```
 
-- **megaPriority**: List of domains for tab sorting (highest priority domains listed first)
-- **categories**: Array of link categories
-  - **order**: Determines display order (lower numbers appear first)
-  - **emoji**: FontAwesome class or emoji character
-  - **links**: Array of links within the category
+- **megaPriority**: domains for tab sorting (highest priority first)
+- **categories** / **order** / **emoji** / **links**: link groups; lower `order` first
+- **entertainmentDomains**: domains the "Move Entertainment" button pulls to another window
+- **githubWatch**: GitHub logins the Activity card tracks
 
 ## Features
 
@@ -131,8 +141,7 @@ The extension looks for `personal-config.json` first, then falls back to `links.
 ├── styles.css            # Custom styles
 ├── manifest.json         # Extension configuration
 ├── bootstrap.min.css     # Bootstrap framework
-├── links.json.example    # Example configuration (public)
-└── personal-config.json  # Your personal config (gitignored)
+└── links.json.example    # Example config shape (real config is Caddy-served; see Configuration)
 ```
 
 ### Security
