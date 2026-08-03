@@ -86,20 +86,12 @@ This extension is published as an **unlisted** add-on on AMO. Updates are deploy
 2. **Build the upload zip:**
    ```powershell
    cd C:\proj\meh-tabs
-   $manifest = Get-Content "manifest.json" | ConvertFrom-Json
-   $version = $manifest.version
-   $zipPath = "dist\custom-new-tab-$version.zip"
-   $files = @(
-     "manifest.json", "newtab.html", "newtab.js", "background.js", "todo.js",
-     "styles.css", "bootstrap.min.css", "bootstrap.bundle.min.js", 
-     "Sortable.min.js", "links.json", "personal-config.json",
-     "icons\\icon-32.png", "icons\\icon-48.png", "icons\\icon-96.png", "icons\\icon-128.png"
-   )
-   New-Item -ItemType Directory -Path "dist" -Force | Out-Null
-   Remove-Item $zipPath -ErrorAction SilentlyContinue
-   Compress-Archive -Path $files -DestinationPath $zipPath
-   Write-Host "Built: $zipPath"
+   python tools\package.py
    ```
+   This writes `dist\custom-new-tab-<version>.zip`. Since v1.0.22 the config is
+   served by Caddy (`home.localhost`), so no `links.json` or
+   `personal-config.json` is bundled — `personal-config.json` contains private
+   URLs and must never go into an AMO upload.
 
 3. **Upload to AMO:**
    - Go to: https://addons.mozilla.org/en-US/developers/addon/afbf11016ec54c478061/versions/
@@ -122,6 +114,19 @@ AMO enforces these rules:
 - **data_collection_permissions**: Required in manifest under `browser_specific_settings.gecko`
   - If you collect/transmit **no data**, Firefox requires `required: ["none"]` (empty arrays fail validation)
 - **Version must increase**: Cannot resubmit an existing version number
+
+### AMO API Credentials
+
+AMO allows exactly ONE active JWT issuer/secret pair per account. Generating
+new credentials instantly revokes the old pair, so after regenerating, copy
+the new `amo-credentials.local` to every machine that signs or installs
+(a stale copy fails with "Unknown JWT iss (issuer)").
+
+Helper scripts (stdlib-only, no node/web-ext needed):
+
+- `tools/amo-check-versions.py` — verify credentials, list signed versions
+- `tools/amo-install-latest.py` — download the latest signed XPI and install
+  it into the default-release Firefox profile (Windows; restart Firefox after)
 
 ### Alternative: Auto-Sign with web-ext
 

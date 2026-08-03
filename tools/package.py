@@ -27,6 +27,9 @@ def main() -> None:
     if not version:
         raise RuntimeError("manifest.json missing 'version'")
 
+    # Since v1.0.22 config is served by Caddy (home.localhost), so no
+    # links.json / personal-config.json is bundled. personal-config.json holds
+    # private URLs and must never go into an AMO upload.
     rel_files = [
         "manifest.json",
         "newtab.html",
@@ -37,8 +40,6 @@ def main() -> None:
         "bootstrap.min.css",
         "bootstrap.bundle.min.js",
         "Sortable.min.js",
-        "links.json",
-        "personal-config.json",
         "icons/icon-32.png",
         "icons/icon-48.png",
         "icons/icon-96.png",
