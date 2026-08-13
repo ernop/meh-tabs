@@ -1,0 +1,37 @@
+---
+description: pstatus / ppush / pdeploy, and this repo's live deploy target
+alwaysApply: true
+---
+
+# Session commands
+
+Defined for wei in `mybrowser` (`AGENTS.md`, `.cursor/rules/06-mei-terminology.mdc`). Repeated here because this repo often loads without that workspace.
+
+- **pstatus** — report unpublished work: uncommitted changes, unpushed commits, and (if this project deploys) what is not yet on the live target. Do not commit, push, or deploy unless asked.
+- **ppush** — evaluate every uncommitted local change (staged, unstaged, untracked). If the set is one coherent, finished change, commit it (normal git protocol: no hooks skipped, no force-push, no secrets) and push to the tracked remote. If incomplete, mixed WIP, or unclear: do not commit; report and stop.
+- **pdeploy** — ppush, then deploy to the **written** live target below. If the target is missing, ambiguous, or contradicts the code: **stop and ask**. Do not guess.
+
+# Deploy target — Custom New Tab only
+
+Live target: **unlisted AMO add-on** gecko id `custom-new-tab@yourname.com`.
+Versions UI: https://addons.mozilla.org/en-US/developers/addon/afbf11016ec54c478061/versions/
+
+Procedure:
+
+1. Bump `manifest.json` `version` (AMO rejects reuse).
+2. Sign unlisted. On Windows: `build-and-sign.ps1`. On this Linux box there is no `pwsh`; stage the `tools/package.py` file list and `npx --yes web-ext@latest sign --channel=unlisted`. Needs `amo-credentials.local` — copy from hostname **PC** (`~/proj/mybrowser/amo-credentials.local`); never mint a new AMO key.
+3. **Local (this Firefox):** copy the signed XPI to
+   `~/.mozilla/firefox/<profile>.default-release/extensions/custom-new-tab@yourname.com.xpi`
+   then restart Firefox (do not kill the browser). Linux can also pull the AMO
+   file after signing: `python3 ~/proj/firefox-userchrome/install-meh-tabs-firefox.py`.
+   Windows profile install: `tools/amo-install-latest.py` (stdlib; restart Firefox).
+
+`pdeploy` on this machine means AMO sign **and** that profile copy. AMO alone is not enough for the running browser.
+
+Not this deploy:
+
+- **Page Date Overlay** — separate extension, no AMO target written here. If `pdeploy` does not name Custom New Tab, ask.
+- **Link/config JSON** — `mybrowser/utilities/caddy/site/newtab-config.json` (git-sync that repo). Not in the XPI.
+- **`chrome-extension/`** — placeholder, not a store.
+
+If credentials are missing or AMO rejects the JWT: stop. Copy `amo-credentials.local` from PC. Do not mint a key. On Linux, `npx --yes web-ext@latest` is the sign path when `pwsh` / global `web-ext` are absent.

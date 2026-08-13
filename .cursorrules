@@ -5,8 +5,7 @@
 Two related Firefox MV2 extensions in the same repo:
 
 1. **Custom New Tab** (this directory, root) — new-tab replacement: clock, stopwatch,
-   todo list, link categories, tab sorting, Chordify extraction, entertainment-tab
-   window moving, config editor.
+ todo list, link categories, tab sorting, entertainment-tab window moving, config editor.
 2. **Page Date Overlay** (`page-date-overlay/`) — content-script-based overlay that
    shows publication date / author on every page visited. See
    [docs/page-date-overlay.md](docs/page-date-overlay.md) for the full product doc.
@@ -29,6 +28,10 @@ Two related Firefox MV2 extensions in the same repo:
 - If a directive is unclear or you need more info or options, ask.
 - When doing substantial changes, report what you changed and any drift
   between docs and code.
+- Session commands **pstatus** / **ppush** / **pdeploy**:
+  [agents.md](agents.md) and [.cursor/rules/session-commands.mdc](.cursor/rules/session-commands.mdc).
+  `pdeploy` here is Custom New Tab → unlisted AMO only. If that is not
+  written or does not match the request, stop and ask.
 
 ## Custom New Tab — structure
 
@@ -36,7 +39,7 @@ Two related Firefox MV2 extensions in the same repo:
 newtab.html            Main page
 newtab.js              Core: ConfigManager, Stopwatch, EntertainmentManager, wiring
 todo.js                TodoList (localStorage, SortableJS drag-and-drop)
-background.js          Tab sort, Chordify extraction, entertainment moving
+background.js          Tab sort, entertainment split, GitHub fetch
 styles.css             Custom styles
 bootstrap.min.css      Bootstrap 5 CSS (local)
 bootstrap.bundle.min.js Bootstrap 5 JS (local, required by AMO)

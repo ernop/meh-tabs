@@ -17,17 +17,29 @@ function getCanonicalUrl(url) {
   return canonical;
 }
 
-// Deduplicate tabs by URL - closes duplicates, keeps the first occurrence
-// Returns array of remaining tabs after deduplication
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function extractDomain(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch (error) {
+    return null;
+  }
+}
+
+// Deduplicate tabs by URL - closes duplicates, keeps the first occurrence.
+// Pinned tabs win the URL slot so we don't close the pin and leave a copy.
 async function deduplicateTabs(tabs) {
-  const seen = new Map(); // canonical URL -> first tab with this URL
+  const seen = new Map(); // canonical URL -> kept tab
   const duplicatesToClose = [];
-  
-  for (const tab of tabs) {
+  const pinnedFirst = [...tabs.filter(t => t.pinned), ...tabs.filter(t => !t.pinned)];
+
+  for (const tab of pinnedFirst) {
     const canonical = getCanonicalUrl(tab.url);
-    
+
     if (seen.has(canonical)) {
-      // This is a duplicate - mark for closing
       duplicatesToClose.push(tab);
     } else {
       seen.set(canonical, tab);
@@ -135,30 +147,101 @@ function tabSortComparator(a, b) {
   return 0;
 }
 
-// Function to sort tabs alphabetically by URL
-// Consolidates ALL tabs from ALL windows into two windows:
-// - Main window: non-entertainment tabs
-// - Entertainment window: entertainment tabs (minimized)
-async function sortTabsAlphabetically(entertainmentDomains = []) {
-  
+// Firefox keeps pinned tabs at indices 0..n-1 and rejects moves that would
+// put an unpinned tab in front of them — or a pinned tab after unpinned ones.
+// Sort each group on its own, pins first.
+function splitPinned(tabs) {
+  const pinned = tabs.filter(t => t.pinned);
+  const unpinned = tabs.filter(t => !t.pinned);
+  pinned.sort(tabSortComparator);
+  unpinned.sort(tabSortComparator);
+  return { pinned, unpinned, ordered: [...pinned, ...unpinned] };
+}
+
+// Move one tab, restoring pin state. Firefox sometimes refuses a cross-window
+// move while the tab is pinned; unpin, move, re-pin in that case.
+async function moveTabToWindow(tab, windowId, index) {
+  const wasPinned = !!tab.pinned;
   try {
-    // Get ALL tabs from ALL windows
+    await browserAPI.tabs.move(tab.id, { windowId, index });
+  } catch (error) {
+    if (!wasPinned) throw error;
+    await browserAPI.tabs.update(tab.id, { pinned: false });
+    await browserAPI.tabs.move(tab.id, { windowId, index });
+  }
+  if (wasPinned) {
+    const current = await browserAPI.tabs.get(tab.id);
+    if (!current.pinned) {
+      await browserAPI.tabs.update(tab.id, { pinned: true });
+    }
+  }
+  await sleep(15);
+}
+
+async function moveTabsToWindow(tabs, windowId, startIndex) {
+  for (let i = 0; i < tabs.length; i++) {
+    try {
+      await moveTabToWindow(tabs[i], windowId, startIndex + i);
+    } catch (error) {
+      console.error(`Error moving tab ${tabs[i].id}:`, error);
+    }
+  }
+}
+
+// Seed a window with the first tab (pinned ones first), then move the rest.
+async function adoptTabsIntoNewWindow(tabs) {
+  if (tabs.length === 0) return null;
+  const first = tabs[0];
+  let newWindow;
+  try {
+    newWindow = await browserAPI.windows.create({ tabId: first.id });
+  } catch (error) {
+    if (!first.pinned) throw error;
+    await browserAPI.tabs.update(first.id, { pinned: false });
+    newWindow = await browserAPI.windows.create({ tabId: first.id });
+  }
+  if (first.pinned) {
+    await browserAPI.tabs.update(first.id, { pinned: true });
+  }
+  for (let i = 1; i < tabs.length; i++) {
+    try {
+      await moveTabToWindow(tabs[i], newWindow.id, i);
+    } catch (error) {
+      console.error(`Error moving tab ${tabs[i].id}:`, error);
+    }
+  }
+  return newWindow.id;
+}
+
+// After a sort, other windows often keep a Firefox-created about:newtab (the
+// API almost never reports tabs.length === 0). Close those, but never a window
+// that still holds a tab we meant to keep (e.g. a pin we failed to move).
+async function closeAbandonedWindows(managedTabIds, keepWindowIds) {
+  const keep = new Set(keepWindowIds.filter(Boolean));
+  const allWindows = await browserAPI.windows.getAll({ populate: true, windowTypes: ['normal'] });
+  for (const win of allWindows) {
+    if (keep.has(win.id)) continue;
+    const leftoverManaged = win.tabs.filter(t => managedTabIds.has(t.id));
+    if (leftoverManaged.length > 0) continue;
+    try {
+      await browserAPI.windows.remove(win.id);
+      console.log(`Closed leftover window ${win.id}`);
+    } catch (error) {
+      console.error(`Error closing leftover window ${win.id}:`, error);
+    }
+  }
+}
+
+// Consolidates ALL tabs from ALL windows into two windows:
+// - Main window: non-entertainment tabs (pinned strip first, then the rest)
+// - Entertainment window: entertainment tabs (minimized; same pin rule)
+async function sortTabsAlphabetically(entertainmentDomains = []) {
+  try {
     const allTabs = await browserAPI.tabs.query({});
-    
-    // Deduplicate tabs first
     const tabs = await deduplicateTabs(allTabs);
     const duplicatesClosed = allTabs.length - tabs.length;
-    
-    // Helper to check if a tab is entertainment
-    const extractDomain = (url) => {
-      try {
-        const urlObj = new URL(url);
-        return urlObj.hostname.replace(/^www\./, '');
-      } catch (error) {
-        return null;
-      }
-    };
-    
+    const managedIds = new Set(tabs.map(t => t.id));
+
     const isEntertainment = (tab) => {
       if (entertainmentDomains.length === 0) return false;
       const domain = extractDomain(tab.url);
@@ -169,256 +252,56 @@ async function sortTabsAlphabetically(entertainmentDomains = []) {
         return false;
       });
     };
-    
-    // Separate entertainment from regular tabs
-    const entertainmentTabs = tabs.filter(tab => isEntertainment(tab));
-    const regularTabs = tabs.filter(tab => !isEntertainment(tab));
-    
-    // Sort both lists
-    entertainmentTabs.sort(tabSortComparator);
-    regularTabs.sort(tabSortComparator);
-    
-    console.log(`Sorting: ${regularTabs.length} regular tabs, ${entertainmentTabs.length} entertainment tabs`);
-    
-    // Get current window to use as main window
+
+    const regular = splitPinned(tabs.filter(tab => !isEntertainment(tab)));
+    const entertainment = splitPinned(tabs.filter(tab => isEntertainment(tab)));
+
+    console.log(`Sorting: ${regular.ordered.length} regular tabs (${regular.pinned.length} pinned), ${entertainment.ordered.length} entertainment tabs (${entertainment.pinned.length} pinned)`);
+
     const currentWindow = await browserAPI.windows.getCurrent();
     const mainWindowId = currentWindow.id;
-    
-    // Move all regular tabs to current window and sort them
-    for (let targetIndex = 0; targetIndex < regularTabs.length; targetIndex++) {
-      const tab = regularTabs[targetIndex];
+
+    // If the current window is all entertainment (including pins), moving those
+    // out first would close it. Park one regular tab so the window stays.
+    const regularInMain = regular.ordered.some(t => t.windowId === mainWindowId);
+    if (!regularInMain && regular.ordered.length > 0) {
+      const park = regular.ordered[0];
       try {
-        // Move to main window at the correct position
-        await browserAPI.tabs.move(tab.id, { 
-          windowId: mainWindowId, 
-          index: targetIndex 
-        });
-        await new Promise(resolve => setTimeout(resolve, 15));
+        await moveTabToWindow(park, mainWindowId, park.pinned ? 0 : -1);
       } catch (error) {
-        console.error(`Error moving tab ${tab.id} to main window:`, error);
+        console.error('Error parking a regular tab in the main window:', error);
       }
     }
-    
-    // Handle entertainment tabs - create new window or use existing one
+
+    // Entertainment (pins included) out first so they don't occupy the main
+    // window's pin strip and block reordering there.
     let entertainmentWindowId = null;
-    if (entertainmentTabs.length > 0) {
-      // Create new window with first entertainment tab
-      const newWindow = await browserAPI.windows.create({
-        tabId: entertainmentTabs[0].id
-      });
-      entertainmentWindowId = newWindow.id;
-      
-      // Move rest of entertainment tabs to the new window
-      for (let i = 1; i < entertainmentTabs.length; i++) {
-        try {
-          await browserAPI.tabs.move(entertainmentTabs[i].id, {
-            windowId: entertainmentWindowId,
-            index: i
-          });
-          await new Promise(resolve => setTimeout(resolve, 15));
-        } catch (error) {
-          console.error(`Error moving entertainment tab ${entertainmentTabs[i].id}:`, error);
-        }
-      }
-      
-      // Minimize the entertainment window
+    if (entertainment.ordered.length > 0) {
+      entertainmentWindowId = await adoptTabsIntoNewWindow(entertainment.ordered);
       try {
         await browserAPI.windows.update(entertainmentWindowId, { state: 'minimized' });
         console.log(`Minimized entertainment window ${entertainmentWindowId}`);
       } catch (error) {
-        console.error(`Error minimizing entertainment window:`, error);
+        console.error('Error minimizing entertainment window:', error);
       }
     }
-    
-    // Close any now-empty windows (except main and entertainment windows)
-    const allWindows = await browserAPI.windows.getAll({ populate: true });
-    for (const win of allWindows) {
-      if (win.id !== mainWindowId && win.id !== entertainmentWindowId) {
-        // Check if window has any tabs left
-        if (win.tabs.length === 0) {
-          try {
-            await browserAPI.windows.remove(win.id);
-            console.log(`Closed empty window ${win.id}`);
-          } catch (error) {
-            console.error(`Error closing empty window ${win.id}:`, error);
-          }
-        }
-      }
-    }
-    
+
+    await moveTabsToWindow(regular.pinned, mainWindowId, 0);
+    await moveTabsToWindow(regular.unpinned, mainWindowId, regular.pinned.length);
+
+    await closeAbandonedWindows(managedIds, [mainWindowId, entertainmentWindowId]);
+
     console.log(`Sorting complete! ${duplicatesClosed} duplicates closed.`);
-    return { 
-      success: true, 
-      tabCount: tabs.length, 
+    return {
+      success: true,
+      tabCount: tabs.length,
       duplicatesClosed: duplicatesClosed,
-      regularCount: regularTabs.length,
-      entertainmentCount: entertainmentTabs.length
+      regularCount: regular.ordered.length,
+      entertainmentCount: entertainment.ordered.length
     };
-    
+
   } catch (error) {
     console.error('Error sorting tabs:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-// Function to move entertainment tabs to a new window
-async function moveEntertainmentTabs(entertainmentDomains) {
-  try {
-    // Get all tabs from all windows
-    const allTabs = await browserAPI.tabs.query({});
-    
-    // Helper function to extract domain from URL
-    const extractDomain = (url) => {
-      try {
-        const urlObj = new URL(url);
-        return urlObj.hostname.replace(/^www\./, '');
-      } catch (error) {
-        return null;
-      }
-    };
-    
-    // Filter for entertainment tabs
-    let entertainmentTabs = allTabs.filter(tab => {
-      const domain = extractDomain(tab.url);
-      if (!domain) return false;
-      
-      return entertainmentDomains.some(entertainmentDomain => {
-        // Exact match
-        if (domain === entertainmentDomain) return true;
-        // Subdomain match (*.entertainmentDomain)
-        if (domain.endsWith('.' + entertainmentDomain)) return true;
-        return false;
-      });
-    });
-    
-    console.log(`Found ${entertainmentTabs.length} entertainment tabs matching domains:`, entertainmentDomains);
-    
-    if (entertainmentTabs.length === 0) {
-      return { success: true, tabCount: 0, duplicatesClosed: 0 };
-    }
-    
-    // Deduplicate entertainment tabs before moving
-    const originalCount = entertainmentTabs.length;
-    entertainmentTabs = await deduplicateTabs(entertainmentTabs);
-    const duplicatesClosed = originalCount - entertainmentTabs.length;
-    
-    if (entertainmentTabs.length === 0) {
-      return { success: true, tabCount: 0, duplicatesClosed: duplicatesClosed };
-    }
-    
-    // Sort entertainment tabs using the shared comparator
-    entertainmentTabs.sort(tabSortComparator);
-    
-    // Create a new window with the first entertainment tab
-    const newWindow = await browserAPI.windows.create({
-      tabId: entertainmentTabs[0].id
-    });
-    
-    console.log(`Created new window with ID ${newWindow.id} for entertainment tabs`);
-    
-    // Move the rest of the entertainment tabs to the new window
-    for (let i = 1; i < entertainmentTabs.length; i++) {
-      try {
-        await browserAPI.tabs.move(entertainmentTabs[i].id, {
-          windowId: newWindow.id,
-          index: -1  // -1 means append to the end
-        });
-        // Small delay to avoid race conditions
-        await new Promise(resolve => setTimeout(resolve, 15));
-      } catch (error) {
-        console.error(`Error moving tab ${entertainmentTabs[i].id}:`, error);
-        // Continue with other tabs even if one fails
-      }
-    }
-    
-    // Minimize the new entertainment window
-    try {
-      await browserAPI.windows.update(newWindow.id, { state: 'minimized' });
-      console.log(`Minimized entertainment window ${newWindow.id}`);
-    } catch (error) {
-      console.error(`Error minimizing window ${newWindow.id}:`, error);
-      // Don't fail the whole operation if minimizing fails
-    }
-    
-    console.log('Entertainment moving and sorting complete!');
-    return { success: true, tabCount: entertainmentTabs.length, duplicatesClosed: duplicatesClosed };
-    
-  } catch (error) {
-    console.error('Error moving entertainment tabs:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-// Function to extract all Chordify tabs to a new window
-async function extractChordifyTabs() {
-  try {
-    // Get all tabs from all windows
-    const allTabs = await browserAPI.tabs.query({});
-    
-    // Helper function to extract domain from URL
-    const extractDomain = (url) => {
-      try {
-        const urlObj = new URL(url);
-        return urlObj.hostname.replace(/^www\./, '');
-      } catch (error) {
-        return null;
-      }
-    };
-    
-    // Filter for Chordify tabs with precise domain matching
-    let chordifyTabs = allTabs.filter(tab => {
-      const domain = extractDomain(tab.url);
-      if (!domain) return false;
-      
-      // Match chordify.net and *.chordify.net
-      return domain === 'chordify.net' || domain.endsWith('.chordify.net');
-    });
-    
-    console.log(`Found ${chordifyTabs.length} Chordify tabs`);
-    
-    if (chordifyTabs.length === 0) {
-      return { success: true, tabCount: 0, duplicatesClosed: 0 };
-    }
-    
-    // Deduplicate Chordify tabs
-    const originalCount = chordifyTabs.length;
-    chordifyTabs = await deduplicateTabs(chordifyTabs);
-    const duplicatesClosed = originalCount - chordifyTabs.length;
-    
-    if (chordifyTabs.length === 0) {
-      return { success: true, tabCount: 0, duplicatesClosed: duplicatesClosed };
-    }
-    
-    // Sort Chordify tabs alphabetically by URL
-    chordifyTabs.sort(tabSortComparator);
-    
-    // Create a new window with the first Chordify tab
-    const newWindow = await browserAPI.windows.create({
-      tabId: chordifyTabs[0].id
-    });
-    
-    console.log(`Created new window with ID ${newWindow.id}`);
-    
-    // Move the rest of the Chordify tabs to the new window in sorted order
-    for (let i = 1; i < chordifyTabs.length; i++) {
-      try {
-        await browserAPI.tabs.move(chordifyTabs[i].id, {
-          windowId: newWindow.id,
-          index: -1  // -1 means append to the end
-        });
-        // Small delay to avoid race conditions
-        await new Promise(resolve => setTimeout(resolve, 15));
-      } catch (error) {
-        console.error(`Error moving tab ${chordifyTabs[i].id}:`, error);
-        // Continue with other tabs even if one fails
-      }
-    }
-    
-    console.log('Chordify extraction and sorting complete!');
-    return { success: true, tabCount: chordifyTabs.length, duplicatesClosed: duplicatesClosed };
-    
-  } catch (error) {
-    console.error('Error extracting Chordify tabs:', error);
     return { success: false, error: error.message };
   }
 }
@@ -540,44 +423,12 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // IMPORTANT: Return true to indicate we'll send a response asynchronously
     return true;
   }
-  
-  if (request.action === 'extractChordify') {
-    console.log('Extract Chordify action requested');
-    
-    // Call the extract function and send response back
-    extractChordifyTabs().then(result => {
-      console.log('Sending result back:', result);
-      sendResponse(result);
-    }).catch(error => {
-      console.error('Error in message handler:', error);
-      sendResponse({ success: false, error: error.message });
-    });
-    
-    // IMPORTANT: Return true to indicate we'll send a response asynchronously
-    return true;
-  }
-  
+
   if (request.action === 'refreshGithub') {
     // force:true bypasses the per-user staleness guard (used by the Refresh button).
     ghRefresh(!!request.force)
       .then(payload => sendResponse({ success: true, data: payload }))
       .catch(error => sendResponse({ success: false, error: error.message }));
-    return true;
-  }
-
-  if (request.action === 'moveEntertainment') {
-    console.log('Move entertainment action requested with domains:', request.entertainmentDomains);
-    
-    // Call the move entertainment function and send response back
-    moveEntertainmentTabs(request.entertainmentDomains).then(result => {
-      console.log('Sending result back:', result);
-      sendResponse(result);
-    }).catch(error => {
-      console.error('Error in message handler:', error);
-      sendResponse({ success: false, error: error.message });
-    });
-    
-    // IMPORTANT: Return true to indicate we'll send a response asynchronously
     return true;
   }
 });

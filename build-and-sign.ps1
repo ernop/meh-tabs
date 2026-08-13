@@ -2,7 +2,7 @@
 # ======================================
 # SETUP:
 # 1. npm install -g web-ext
-# 2. Create amo-credentials.local with AMO_JWT_ISSUER and AMO_JWT_SECRET
+# 2. amo-credentials.local — copy from PC (~/proj/mybrowser/amo-credentials.local). Do not mint a new AMO key.
 # 3. Copy dist/policies.json to: C:\Program Files\Mozilla Firefox\distribution\
 #
 # USAGE:

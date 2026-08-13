@@ -130,7 +130,7 @@ Helper scripts (stdlib-only, no node/web-ext needed):
 
 ### Alternative: Auto-Sign with web-ext
 
-If you have AMO API credentials in `amo-credentials.local`:
+If you have AMO API credentials in `amo-credentials.local` (copy from hostname **PC**, `~/proj/mybrowser/amo-credentials.local`; do not generate a new key):
 ```powershell
 .\build-and-sign.ps1
 ```
