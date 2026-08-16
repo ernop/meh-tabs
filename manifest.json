@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Custom New Tab",
-  "version": "1.0.24",
+  "version": "1.0.26",
   "description": "Replaces the new tab page with a custom page featuring quick links, todo list, and tab management",
   "icons": {
     "32": "icons/icon-32.png",
@@ -33,7 +33,7 @@
     "persistent": false
   },
   "browser_action": {
-    "default_title": "Sort tabs alphabetically",
+    "default_title": "Group and sort tabs",
     "default_icon": {
       "32": "icons/icon-32.png",
       "48": "icons/icon-48.png"

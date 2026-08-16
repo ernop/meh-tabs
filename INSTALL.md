@@ -147,7 +147,7 @@ Your custom new tab extension includes:
 - ✅ **Todo List** - Local todo management with drag-and-drop, export/import backup functionality
 - ✅ **Time Display** - Real-time clock and date in 24-hour format
 - ✅ **Stopwatch** - Built-in timing functionality with pause/resume
-- ✅ **Smart Tab Sorting** - Prioritizes tabs with audio, then custom domains, then alphabetically
+- ✅ **Smart Tab Sorting** - Splits regular, entertainment, AI-chat, and X tabs into windows and sorts each group by title
 - ✅ **Google Search** - Quick search integration
 - ✅ **Local Storage** - All data stored locally (localStorage)
 - ✅ **Dual Configuration** - Supports both `links.json` (default) and `personal-config.json` (preferred)
@@ -170,8 +170,8 @@ Your custom new tab extension includes:
 ### Tab Sorting Not Working
 - Verify the extension has "tabs" permission in `manifest.json`
 - Check that the background script is loaded properly
-- Tab sorting prioritizes: 1) Tabs with audio, 2) MegaPriority domains, 3) Alphabetically by URL
-- MegaPriority domains are configured in `background.js` (hardcoded) and optionally in `personal-config.json`
+- The page button creates separate windows for AI chats (`claude.ai`, `chatgpt.com`), X (`x.com`), configured entertainment domains, and all other tabs.
+- Pinned and unpinned tabs are sorted separately by title inside each group.
 
 ### Todo List Not Saving
 - Ensure localStorage is enabled in Firefox
@@ -196,7 +196,7 @@ meh-tabs/
 ├── newtab.html               # New tab page
 ├── newtab.js                 # Core functionality (ConfigManager, Stopwatch, etc.)
 ├── todo.js                   # Todo list
-├── background.js             # Tab sort, Chordify extract, entertainment move
+├── background.js             # Four-way tab grouping, title sort, GitHub fetch
 ├── styles.css                # Custom styles
 ├── bootstrap.min.css         # Bootstrap 5 CSS (local)
 ├── bootstrap.bundle.min.js   # Bootstrap 5 JS (local, required by AMO)
@@ -278,50 +278,17 @@ Edit `links.json` or create/edit `personal-config.json` with your categories and
 
 All icons use simple Unicode emojis - no external icon libraries needed!
 
-**Priority Tab Sorting** (in `personal-config.json`):
-You can also add a `megaPriority` array to prioritize certain domains when sorting tabs:
-```json
-{
-  "megaPriority": [
-    "mail.google.com",
-    "calendar.google.com",
-    "chatgpt.com"
-  ],
-  "categories": [ ... ]
-}
-```
+### Tab Sorting
 
-### Tab Sorting Priority
+The page button creates four groups:
 
-To customize which domains get priority when sorting tabs, you have two options:
+1. AI chats: `claude.ai` and `chatgpt.com`
+2. X: `x.com`
+3. Entertainment: domains from the Caddy-served config
+4. Regular: everything else
 
-**Option 1: Edit `background.js` (Hardcoded Priority)**
-Modify the `megaPriority` array around line 15:
-```javascript
-const megaPriority = [
-  'mail.google.com',
-  'calendar.google.com',
-  'chatgpt.com',
-  // Add your preferred domains here
-];
-```
-
-**Option 2: Use `personal-config.json` (Optional, Not Currently Implemented)**
-Add a `megaPriority` array to your config file (note: this requires the background script to load and use this config, which is not currently implemented):
-```json
-{
-  "megaPriority": [
-    "mail.google.com",
-    "chatgpt.com"
-  ],
-  "categories": [ ... ]
-}
-```
-
-**Tab Sorting Order:**
-1. Tabs with audio playing (highest priority)
-2. MegaPriority domains (in order specified)
-3. All other tabs alphabetically by URL
+AI and X take precedence over entertainment. Each group sorts pinned and
+unpinned tabs separately by title, with URL as the tie-breaker.
 
 ### Styling
 Modify `styles.css` to customize the appearance of your new tab page.

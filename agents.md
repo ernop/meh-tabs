@@ -7,7 +7,7 @@ Start here.
 Firefox-extensions monorepo. Two extensions:
 
 1. **Custom New Tab** (repo root) — new-tab replacement with links, todo,
-   stopwatch, tab sorting (entertainment domains go to a minimized window).
+   stopwatch, and four-way tab grouping (regular, entertainment, AI chats, X).
 2. **Page Date Overlay** (`page-date-overlay/`) — content-script overlay that
    shows author / publication date on every page, with user-taught type rules.
    See [docs/page-date-overlay.md](docs/page-date-overlay.md).

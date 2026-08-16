@@ -21,7 +21,7 @@ Opens instead of Firefox’s default new tab. Layout, top to bottom:
 - **Google search** — a normal GET form to `google.com/search`.
 - **Link categories** — the rest of the config, sorted by `order`.
 - **GitHub Activity** — contribution counts for a watched username list.
-- **Entertainment Domain List** — domains Sort splits into a separate minimized window.
+- **Entertainment Domain List** — domains Sort splits into a separate minimized window. AI chats and X have their own code-defined windows.
 - **Todo list** — active / archived tabs, drag-and-drop, export/import. Stored in `localStorage`, not in the Caddy config.
 
 ### Configuration (Caddy file, not bundled)
@@ -71,7 +71,7 @@ Shape:
 | `categories` | Link groups. Lower `order` first. A category named `fuseki` is pinned to the top as **Fuseki Live**. |
 | `entertainmentDomains` | Sort matches hostname or subdomain (`youtube.com` also matches `www.youtube.com`) and sends those tabs to a minimized window. |
 | `githubWatch` | GitHub logins on the Activity card. Accepts a username, `@handle`, or profile URL. |
-| `megaPriority` | Intended tab-sort priority list. **Currently unused by the sorter** — `background.js` still has a hardcoded domain list. The field is stored and round-tripped by Export/Import. |
+| `megaPriority` | Legacy tab-sort priority list. The title sorter does not use it; the field remains stored and round-tripped by Export/Import. |
 
 `links.json.example` in this repo is a sanitized example of that shape. Multi-machine Caddy setup: `mybrowser/docs/newtab-laptop-setup.md`.
 
@@ -83,18 +83,22 @@ Icons in config are Font Awesome class names (`fa-solid fa-robot`). Font Awesome
 
 ### Tab management
 
-**Sort Open Tabs** (and the toolbar button) talks to `background.js`. Duplicate tabs are closed first (canonical URL: lowercased, no trailing slash, `www.` stripped). Pinned tabs win a duplicate URL so the pin is kept.
+**Sort Open Tabs** talks to `background.js`. Duplicate tabs are closed first (canonical URL: lowercased, no trailing slash, `www.` stripped). Pinned tabs win a duplicate URL so the pin is kept.
 
 Firefox keeps pinned tabs at the left of a window and will not let an unpinned tab occupy that strip. Sort therefore:
 
 1. Deduplicate every tab in every window.
-2. Split remaining tabs into regular vs entertainment (from the live domain list).
-3. Within each group, sort **pinned** and **unpinned** separately: hardcoded mega-priority domains, then `file://`, then everything else; within a subgroup, audible tabs first, then URL alphabetically.
-4. Move entertainment tabs (pins included) into a **new** window, re-pin them, and minimize it.
+2. Split remaining tabs into four groups, in precedence order:
+   - AI chats: `claude.ai` and `chatgpt.com`
+   - X: `x.com`
+   - Entertainment: the live entertainment-domain list
+   - Regular: everything else
+3. Within each group, sort **pinned** and **unpinned** tabs separately by title, then URL to break title ties.
+4. Move AI chats, X, and entertainment into separate new windows. Entertainment stays minimized.
 5. Move regular pinned tabs into the current window’s pin strip, then unpinned tabs after them.
-6. Close leftover windows that no longer hold any of those tabs (Firefox often leaves an `about:newtab` behind; a window that still has a pin we failed to move is left alone).
+6. Close leftover windows that no longer hold any managed tabs.
 
-The toolbar button currently runs the same sort **without** an entertainment list, so it will not split windows.
+The page button and toolbar button both load the live entertainment list and perform the same four-way grouping.
 
 ### GitHub Activity
 

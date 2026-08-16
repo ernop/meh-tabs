@@ -29,6 +29,13 @@ function extractDomain(url) {
   }
 }
 
+function domainMatches(domain, candidate) {
+  return domain === candidate || domain.endsWith('.' + candidate);
+}
+
+const AI_CHAT_DOMAINS = ['claude.ai', 'chatgpt.com'];
+const X_DOMAINS = ['x.com'];
+
 // Deduplicate tabs by URL - closes duplicates, keeps the first occurrence.
 // Pinned tabs win the URL slot so we don't close the pin and leave a copy.
 async function deduplicateTabs(tabs) {
@@ -63,88 +70,16 @@ async function deduplicateTabs(tabs) {
   return Array.from(seen.values());
 }
 
-// Shared priority config used by sorting
-const megaPriority = [
-  'mail.google.com',
-  'calendar.google.com', 
-  'docs.google.com',
-  'maps.google.com',
-  'www.google.com/maps',
-  'photos.google.com',
-  'chatgpt.com',
-  'claude.ai',
-  'ebay.com',
-  'youtube.com',	  
-];
-
-const getMegaPriority = (url) => {
-  if (!url) return -1;
-  for (let i = 0; i < megaPriority.length; i++) {
-    if (url.includes(megaPriority[i])) {
-      return i;
-    }
-  }
-  return -1;
-};
-
-// Check if URL is a file:// URL
-const isFileUrl = (url) => {
-  return url && url.toLowerCase().startsWith('file://');
-};
-
-// Sort comparator for tabs
-// Priority order: mega-priority sites > file:// URLs > regular URLs
-// Within each group: audio tabs first, then alphabetically
+// Titles are what Firefox displays in the tab strip. URL breaks ties so the
+// result remains deterministic when several pages have the same title.
 function tabSortComparator(a, b) {
-  let urlA = (a.url || '').toLowerCase();
-  let urlB = (b.url || '').toLowerCase();
-  
-  const priorityA = getMegaPriority(urlA);
-  const priorityB = getMegaPriority(urlB);
-  
-  // If either has mega-priority, sort by priority
-  if (priorityA !== -1 || priorityB !== -1) {
-    // If only one has priority, it goes first
-    if (priorityA === -1) return 1;
-    if (priorityB === -1) return -1;
-    // If both have priority, sort by priority order first
-    if (priorityA !== priorityB) {
-      return priorityA - priorityB;
-    }
-    // Same priority level - check audio status
-    if (a.audible !== b.audible) {
-      return a.audible ? -1 : 1; // Audio tabs first
-    }
-    // Same priority and audio status - sort alphabetically
-    urlA = urlA.replace(/^(https?:\/\/)www\./, '$1');
-    urlB = urlB.replace(/^(https?:\/\/)www\./, '$1');
-    if (urlA < urlB) return -1;
-    if (urlA > urlB) return 1;
-    return 0;
-  }
-  
-  // Check for file:// URLs - they go after mega-priority but before regular URLs
-  const fileA = isFileUrl(urlA);
-  const fileB = isFileUrl(urlB);
-  
-  if (fileA !== fileB) {
-    return fileA ? -1 : 1; // file:// URLs come first
-  }
-  
-  // Both are regular tabs (no mega-priority, same file:// status)
-  // First check audio status
-  if (a.audible !== b.audible) {
-    return a.audible ? -1 : 1; // Audio tabs first
-  }
-  
-  // Same audio status - sort alphabetically
-  // Strip leading www. from URLs for sorting purposes
-  urlA = urlA.replace(/^(https?:\/\/)www\./, '$1');
-  urlB = urlB.replace(/^(https?:\/\/)www\./, '$1');
-  
-  if (urlA < urlB) return -1;
-  if (urlA > urlB) return 1;
-  return 0;
+  const titleResult = (a.title || '').localeCompare(
+    b.title || '',
+    undefined,
+    { sensitivity: 'base', numeric: true }
+  );
+  if (titleResult !== 0) return titleResult;
+  return (a.url || '').localeCompare(b.url || '', undefined, { sensitivity: 'base' });
 }
 
 // Firefox keeps pinned tabs at indices 0..n-1 and rejects moves that would
@@ -232,9 +167,8 @@ async function closeAbandonedWindows(managedTabIds, keepWindowIds) {
   }
 }
 
-// Consolidates ALL tabs from ALL windows into two windows:
-// - Main window: non-entertainment tabs (pinned strip first, then the rest)
-// - Entertainment window: entertainment tabs (minimized; same pin rule)
+// Consolidates all tabs into four groups. AI chat and X are code-defined groups
+// and take precedence over the user-maintained entertainment domain list.
 async function sortTabsAlphabetically(entertainmentDomains = []) {
   try {
     const allTabs = await browserAPI.tabs.query({});
@@ -242,27 +176,45 @@ async function sortTabsAlphabetically(entertainmentDomains = []) {
     const duplicatesClosed = allTabs.length - tabs.length;
     const managedIds = new Set(tabs.map(t => t.id));
 
-    const isEntertainment = (tab) => {
-      if (entertainmentDomains.length === 0) return false;
+    const matchesAnyDomain = (tab, domains) => {
       const domain = extractDomain(tab.url);
       if (!domain) return false;
-      return entertainmentDomains.some(entertainmentDomain => {
-        if (domain === entertainmentDomain) return true;
-        if (domain.endsWith('.' + entertainmentDomain)) return true;
-        return false;
-      });
+      return domains.some(candidate => domainMatches(domain, candidate));
     };
 
-    const regular = splitPinned(tabs.filter(tab => !isEntertainment(tab)));
-    const entertainment = splitPinned(tabs.filter(tab => isEntertainment(tab)));
+    const groupedTabs = {
+      aiChats: [],
+      x: [],
+      entertainment: [],
+      regular: [],
+    };
+    for (const tab of tabs) {
+      if (matchesAnyDomain(tab, AI_CHAT_DOMAINS)) {
+        groupedTabs.aiChats.push(tab);
+      } else if (matchesAnyDomain(tab, X_DOMAINS)) {
+        groupedTabs.x.push(tab);
+      } else if (matchesAnyDomain(tab, entertainmentDomains)) {
+        groupedTabs.entertainment.push(tab);
+      } else {
+        groupedTabs.regular.push(tab);
+      }
+    }
 
-    console.log(`Sorting: ${regular.ordered.length} regular tabs (${regular.pinned.length} pinned), ${entertainment.ordered.length} entertainment tabs (${entertainment.pinned.length} pinned)`);
+    const regular = splitPinned(groupedTabs.regular);
+    const entertainment = splitPinned(groupedTabs.entertainment);
+    const aiChats = splitPinned(groupedTabs.aiChats);
+    const x = splitPinned(groupedTabs.x);
+
+    console.log(
+      `Sorting: ${regular.ordered.length} regular, ` +
+      `${entertainment.ordered.length} entertainment, ` +
+      `${aiChats.ordered.length} AI chat, ${x.ordered.length} X tabs`
+    );
 
     const currentWindow = await browserAPI.windows.getCurrent();
     const mainWindowId = currentWindow.id;
 
-    // If the current window is all entertainment (including pins), moving those
-    // out first would close it. Park one regular tab so the window stays.
+    // Park one regular tab in the main window before extracting the other groups.
     const regularInMain = regular.ordered.some(t => t.windowId === mainWindowId);
     if (!regularInMain && regular.ordered.length > 0) {
       const park = regular.ordered[0];
@@ -273,8 +225,6 @@ async function sortTabsAlphabetically(entertainmentDomains = []) {
       }
     }
 
-    // Entertainment (pins included) out first so they don't occupy the main
-    // window's pin strip and block reordering there.
     let entertainmentWindowId = null;
     if (entertainment.ordered.length > 0) {
       entertainmentWindowId = await adoptTabsIntoNewWindow(entertainment.ordered);
@@ -286,10 +236,23 @@ async function sortTabsAlphabetically(entertainmentDomains = []) {
       }
     }
 
+    let aiChatWindowId = null;
+    if (aiChats.ordered.length > 0) {
+      aiChatWindowId = await adoptTabsIntoNewWindow(aiChats.ordered);
+    }
+
+    let xWindowId = null;
+    if (x.ordered.length > 0) {
+      xWindowId = await adoptTabsIntoNewWindow(x.ordered);
+    }
+
     await moveTabsToWindow(regular.pinned, mainWindowId, 0);
     await moveTabsToWindow(regular.unpinned, mainWindowId, regular.pinned.length);
 
-    await closeAbandonedWindows(managedIds, [mainWindowId, entertainmentWindowId]);
+    await closeAbandonedWindows(
+      managedIds,
+      [mainWindowId, entertainmentWindowId, aiChatWindowId, xWindowId]
+    );
 
     console.log(`Sorting complete! ${duplicatesClosed} duplicates closed.`);
     return {
@@ -297,7 +260,9 @@ async function sortTabsAlphabetically(entertainmentDomains = []) {
       tabCount: tabs.length,
       duplicatesClosed: duplicatesClosed,
       regularCount: regular.ordered.length,
-      entertainmentCount: entertainment.ordered.length
+      entertainmentCount: entertainment.ordered.length,
+      aiChatCount: aiChats.ordered.length,
+      xCount: x.ordered.length
     };
 
   } catch (error) {
@@ -433,11 +398,28 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-// Optional: Add toolbar button handler
 if (browserAPI.browserAction && browserAPI.browserAction.onClicked) {
-  browserAPI.browserAction.onClicked.addListener(() => {
+  browserAPI.browserAction.onClicked.addListener(async () => {
     console.log('Toolbar button clicked');
-    sortTabsAlphabetically();
+    try {
+      const response = await fetch(
+        'http://home.localhost/newtab-config.json',
+        { cache: 'no-store' }
+      );
+      if (!response.ok) {
+        throw new Error(`newtab-config.json ${response.status}`);
+      }
+      const config = await response.json();
+      if (!Array.isArray(config.entertainmentDomains)) {
+        throw new Error('newtab-config.json missing entertainmentDomains');
+      }
+      const result = await sortTabsAlphabetically(config.entertainmentDomains);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Toolbar tab sort failed:', error);
+    }
   });
   console.log('Toolbar button handler registered');
 }

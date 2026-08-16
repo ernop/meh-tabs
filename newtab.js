@@ -913,8 +913,19 @@ function initializeTabSorting() {
         if (response.entertainmentCount > 0) {
           parts.push(`${response.entertainmentCount} entertainment`);
         }
+        if (response.aiChatCount > 0) {
+          parts.push(`${response.aiChatCount} AI chats`);
+        }
+        if (response.xCount > 0) {
+          parts.push(`${response.xCount} X`);
+        }
         
-        console.log(`Sorted: ${response.regularCount} regular, ${response.entertainmentCount} entertainment, ${response.duplicatesClosed} dupes closed`);
+        console.log(
+          `Sorted: ${response.regularCount} regular, ` +
+          `${response.entertainmentCount} entertainment, ` +
+          `${response.aiChatCount} AI chats, ${response.xCount} X, ` +
+          `${response.duplicatesClosed} dupes closed`
+        );
         sortButton.textContent = parts.length > 0 
           ? `Sorted! ${parts.join(', ')}`
           : 'Sorted!';
