@@ -147,7 +147,7 @@ Your custom new tab extension includes:
 - ✅ **Todo List** - Local todo management with drag-and-drop, export/import backup functionality
 - ✅ **Time Display** - Real-time clock and date in 24-hour format
 - ✅ **Stopwatch** - Built-in timing functionality with pause/resume
-- ✅ **Smart Tab Sorting** - Splits regular, entertainment, AI-chat, and X tabs into windows and sorts each group by title
+- ✅ **Smart Tab Sorting** - Splits regular, entertainment, AI-chat, and X tabs into windows and sorts each group by root hostname, then subdomain, then title
 - ✅ **Google Search** - Quick search integration
 - ✅ **Local Storage** - All data stored locally (localStorage)
 - ✅ **Dual Configuration** - Supports both `links.json` (default) and `personal-config.json` (preferred)
@@ -171,7 +171,7 @@ Your custom new tab extension includes:
 - Verify the extension has "tabs" permission in `manifest.json`
 - Check that the background script is loaded properly
 - The page button creates separate windows for AI chats (`claude.ai`, `chatgpt.com`), X (`x.com`), configured entertainment domains, and all other tabs.
-- Pinned and unpinned tabs are sorted separately by title inside each group.
+- Pinned and unpinned tabs are sorted separately by root hostname, then subdomain, then title inside each group.
 
 ### Todo List Not Saving
 - Ensure localStorage is enabled in Firefox
@@ -288,7 +288,8 @@ The page button creates four groups:
 4. Regular: everything else
 
 AI and X take precedence over entertainment. Each group sorts pinned and
-unpinned tabs separately by title, with URL as the tie-breaker.
+unpinned tabs separately by root hostname, then subdomain, then title,
+with URL as the last tie-breaker.
 
 ### Styling
 Modify `styles.css` to customize the appearance of your new tab page.

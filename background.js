@@ -29,6 +29,40 @@ function extractDomain(url) {
   }
 }
 
+// Second-level labels that pair with a 2-letter ccTLD (co.uk, com.au, ...).
+// Keeps news.bbc.co.uk under bbc.co.uk instead of the suffix co.uk.
+const GENERIC_SECOND_LEVEL = new Set([
+  'ac', 'co', 'com', 'edu', 'gob', 'gov', 'govt', 'ltd', 'me', 'mil',
+  'ne', 'net', 'or', 'org', 'plc', 'sch',
+]);
+
+function compareText(a, b) {
+  return (a || '').localeCompare(b || '', undefined, { sensitivity: 'base', numeric: true });
+}
+
+// Split example.com / mail.google.com / news.bbc.co.uk into the registrable
+// root and the leftover subdomain prefix. www. is already stripped.
+function splitHostForSort(hostname) {
+  if (!hostname) return { root: '', subdomain: '' };
+  const host = hostname.toLowerCase();
+  if (host.includes(':') || /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) {
+    return { root: host, subdomain: '' };
+  }
+  const labels = host.split('.').filter(Boolean);
+  if (labels.length < 2) {
+    return { root: host, subdomain: '' };
+  }
+  const useThree =
+    labels.length >= 3 &&
+    labels[labels.length - 1].length === 2 &&
+    GENERIC_SECOND_LEVEL.has(labels[labels.length - 2]);
+  const rootLen = useThree ? 3 : 2;
+  return {
+    root: labels.slice(-rootLen).join('.'),
+    subdomain: labels.slice(0, -rootLen).join('.'),
+  };
+}
+
 function domainMatches(domain, candidate) {
   return domain === candidate || domain.endsWith('.' + candidate);
 }
@@ -70,16 +104,24 @@ async function deduplicateTabs(tabs) {
   return Array.from(seen.values());
 }
 
-// Titles are what Firefox displays in the tab strip. URL breaks ties so the
-// result remains deterministic when several pages have the same title.
+// After the four-way group split, each window is ordered by registrable host
+// (google.com), then subdomain (docs / mail), then document title. URL is the
+// last tie-break so equal titles stay deterministic. Hostless tabs (about:,
+// file:) sort after real hosts.
 function tabSortComparator(a, b) {
-  const titleResult = (a.title || '').localeCompare(
-    b.title || '',
-    undefined,
-    { sensitivity: 'base', numeric: true }
-  );
+  const hostA = extractDomain(a.url);
+  const hostB = extractDomain(b.url);
+  if (!hostA !== !hostB) return hostA ? -1 : 1;
+
+  const partsA = splitHostForSort(hostA);
+  const partsB = splitHostForSort(hostB);
+  const rootResult = compareText(partsA.root, partsB.root);
+  if (rootResult !== 0) return rootResult;
+  const subdomainResult = compareText(partsA.subdomain, partsB.subdomain);
+  if (subdomainResult !== 0) return subdomainResult;
+  const titleResult = compareText(a.title, b.title);
   if (titleResult !== 0) return titleResult;
-  return (a.url || '').localeCompare(b.url || '', undefined, { sensitivity: 'base' });
+  return compareText(a.url, b.url);
 }
 
 // Firefox keeps pinned tabs at indices 0..n-1 and rejects moves that would

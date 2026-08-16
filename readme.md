@@ -71,7 +71,7 @@ Shape:
 | `categories` | Link groups. Lower `order` first. A category named `fuseki` is pinned to the top as **Fuseki Live**. |
 | `entertainmentDomains` | Sort matches hostname or subdomain (`youtube.com` also matches `www.youtube.com`) and sends those tabs to a minimized window. |
 | `githubWatch` | GitHub logins on the Activity card. Accepts a username, `@handle`, or profile URL. |
-| `megaPriority` | Legacy tab-sort priority list. The title sorter does not use it; the field remains stored and round-tripped by Export/Import. |
+| `megaPriority` | Legacy tab-sort priority list. The hostname sorter does not use it; the field remains stored and round-tripped by Export/Import. |
 
 `links.json.example` in this repo is a sanitized example of that shape. Multi-machine Caddy setup: `mybrowser/docs/newtab-laptop-setup.md`.
 
@@ -93,7 +93,7 @@ Firefox keeps pinned tabs at the left of a window and will not let an unpinned t
    - X: `x.com`
    - Entertainment: the live entertainment-domain list
    - Regular: everything else
-3. Within each group, sort **pinned** and **unpinned** tabs separately by title, then URL to break title ties.
+3. Within each group, sort **pinned** and **unpinned** tabs separately by root hostname, then subdomain, then title. URL breaks remaining ties.
 4. Move AI chats, X, and entertainment into separate new windows. Entertainment stays minimized.
 5. Move regular pinned tabs into the current window’s pin strip, then unpinned tabs after them.
 6. Close leftover windows that no longer hold any managed tabs.
