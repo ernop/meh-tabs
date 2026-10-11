@@ -22,8 +22,8 @@ function setAppVersion() {
 // REMOTE CONFIG -- single source of truth, served by Caddy from the private
 // mybrowser repo (utilities/caddy/site/newtab-config.json), loopback-only.
 // The page READS it at http://home.localhost/newtab-config.json and WRITES edits
-// back through the launcher (POST /api/newtab-config on 127.0.0.1:8787, which
-// Caddy proxies). No browser storage holds config anymore, so `git pull` on
+// back through the launcher (POST /api/newtab-config, which Caddy proxies to the
+// ProjectLauncher). No browser storage holds config anymore, so `git pull` on
 // another box brings the whole page config -- no seeding, no per-machine file,
 // no paste. (The one remaining storage.local use is the GitHub contribution
 // COUNTS cache in background.js -- refetchable API data, not config.)

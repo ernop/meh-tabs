@@ -35,7 +35,7 @@ mybrowser/utilities/caddy/site/newtab-config.json
 Caddy serves it loopback-only at `http://home.localhost/newtab-config.json`. The extension fetches it on every new tab (`cache: no-store`). In-UI edits POST the whole file back through the launcher:
 
 ```
-http://home.localhost/api/newtab-config   →  127.0.0.1:8787
+http://home.localhost/api/newtab-config   →  ProjectLauncher (127.0.0.1:8788)
 ```
 
 Reads only need Caddy. Saving (Edit, Import, entertainment domains, GitHub watch list) also needs the launcher, same as the dashboard’s Start/Stop.
