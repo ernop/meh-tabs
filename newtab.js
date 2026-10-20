@@ -433,8 +433,8 @@ async function fetchCaddyServices() {
     .map(s => ({
       name: s.label || s.hostname || s.url,
       href: s.url || (s.hostname ? 'http://' + s.hostname : '#'),
-      hostname: s.hostname || '',
-      port: s.port || null,
+      // projects.json gives a path like /icons/<name>.svg on home.localhost.
+      icon: s.icon ? new URL(s.icon, LOCAL_SERVICES_URL).href : null,
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -446,18 +446,14 @@ function createLocalServiceCard(link) {
   const a = document.createElement('a');
   a.href = link.href;
   a.className = 'link-btn';
-  const icon = document.createElement('i');
-  icon.className = 'fa-solid fa-server';
-  a.appendChild(icon);
-  a.appendChild(document.createTextNode(' ' + link.name));
-  // Metadata: the host:port this points at, so the row shows where it actually goes.
-  if (link.hostname) {
-    const meta = document.createElement('span');
-    meta.className = 'text-muted ms-2';
-    meta.style.fontSize = '0.8em';
-    meta.textContent = link.port ? `${link.hostname}:${link.port}` : link.hostname;
-    a.appendChild(meta);
+  if (link.icon) {
+    const img = document.createElement('img');
+    img.className = 'local-service-icon';
+    img.src = link.icon;
+    img.alt = '';
+    a.appendChild(img);
   }
+  a.appendChild(document.createTextNode(link.name));
   wrapper.appendChild(a);
   return wrapper;
 }

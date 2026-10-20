@@ -17,7 +17,7 @@ Opens instead of Firefox’s default new tab. Layout, top to bottom:
 - **Greeting** — “Hello, You!” plus the extension version from `manifest.json`, and **Edit** / **Export Config** / **Import Config**.
 - **Tab tools** — Sort Open Tabs, and a stopwatch.
 - **Fuseki Live** — if the config has a category named `fuseki` (any case), it is pinned here with a large header. Other categories stay below search.
-- **Local Services** — live list from Caddy (`http://home.localhost/projects.json`), not from the new-tab config. Shows each service’s hostname:port. If Caddy is down, the section says it is unreachable.
+- **Local Services** — live list from Caddy (`http://home.localhost/projects.json`), not from the new-tab config. Each button is the project's icon (if `http://home.localhost/icons/<name>.svg` exists) followed by its label — no hostname, port, or path (decided 2026-10-20: the link target is not useful on the button). Icon format: mybrowser `docs/icon-system.md`. If Caddy is down, the section says it is unreachable.
 - **Google search** — a normal GET form to `google.com/search`.
 - **Link categories** — the rest of the config, sorted by `order`.
 - **GitHub Activity** — contribution counts for a watched username list.
