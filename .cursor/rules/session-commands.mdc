@@ -19,10 +19,12 @@ Versions UI: https://addons.mozilla.org/en-US/developers/addon/afbf11016ec54c478
 Procedure:
 
 1. Bump `manifest.json` `version` (AMO rejects reuse).
-2. Sign unlisted. On Windows: `build-and-sign.ps1`. On this Linux box there is no `pwsh`; stage the `tools/package.py` file list and `npx --yes web-ext@latest sign --channel=unlisted`. Needs `amo-credentials.local` — copy from hostname **PC** (`~/proj/mybrowser/amo-credentials.local`); never mint a new AMO key.
-3. **Local (this Firefox):** copy the signed XPI to
+2. Sign unlisted. On Windows: `build-and-sign.ps1`. On this Linux box there is no `pwsh`; `python3 tools/package.py` (builds, and deletes older builds in `dist/`), `python3 tools/package.py --stage "$STAGE"`, then `npx --yes web-ext@latest sign --channel=unlisted --source-dir "$STAGE" --artifacts-dir dist`, with the JWT in `WEB_EXT_API_KEY` / `WEB_EXT_API_SECRET` rather than on the command line. Needs `amo-credentials.local` — copy from hostname **PC** (`~/proj/mybrowser/amo-credentials.local`); never mint a new AMO key.
+3. **Local (this Firefox):** put the signed XPI at
    `~/.mozilla/firefox/<profile>.default-release/extensions/custom-new-tab@yourname.com.xpi`
-   then restart Firefox (do not kill the browser). Linux can also pull the AMO
+   by copying it into the profile directory and renaming it over that file (a
+   running Firefox has the old XPI open; overwriting it in place can break the
+   running extension), then restart Firefox (do not kill the browser). Linux can also pull the AMO
    file after signing: `python3 ~/proj/firefox-userchrome/install-meh-tabs-firefox.py`.
    Windows profile install: `tools/amo-install-latest.py` (stdlib; restart Firefox).
 

@@ -49,7 +49,8 @@ links.json.example     Example config
 personal-config.json   Personal config (gitignored)
 dist/                  Signed XPI builds
 build-and-sign.ps1     AMO upload + signing helper
-tools/package.py       Packaging helper
+tools/package.py       Packaging helper (--stage DIR for web-ext sign)
+tests/sort-tabs/       Headless Firefox test of the tab sort
 tools-generate-icons.py  Icon generation
 ```
 

@@ -21,7 +21,7 @@ Opens instead of Firefox’s default new tab. Layout, top to bottom:
 - **Google search** — a normal GET form to `google.com/search`.
 - **Link categories** — the rest of the config, sorted by `order`.
 - **GitHub Activity** — contribution counts for a watched username list.
-- **Entertainment Domain List** — domains Sort splits into a separate minimized window. AI chats and X have their own code-defined windows.
+- **Entertainment Domain List** — domains Sort splits into a separate minimized window. AI chats, X and Google Docs have their own code-defined windows.
 - **Todo list** — active / archived tabs, drag-and-drop, export/import. Stored in `localStorage`, not in the Caddy config.
 
 ### Configuration (Caddy file, not bundled)
@@ -83,22 +83,32 @@ Icons in config are Font Awesome class names (`fa-solid fa-robot`). Font Awesome
 
 ### Tab management
 
-**Sort Open Tabs** talks to `background.js`. Duplicate tabs are closed first (canonical URL: lowercased, no trailing slash, `www.` stripped). Pinned tabs win a duplicate URL so the pin is kept.
+**Sort Open Tabs** (the page button or the toolbar button) talks to `background.js`. The window it is started from is the **main window**. Only normal windows are sorted: popups, such as a Gmail compose popout, are left alone.
 
-Firefox keeps pinned tabs at the left of a window and will not let an unpinned tab occupy that strip. Sort therefore:
+Firefox keeps pinned tabs at the left of a window and will not let an unpinned tab occupy that strip. Sort:
 
-1. Deduplicate every tab in every window.
-2. Split remaining tabs into four groups, in precedence order:
+1. Closes the new tab pages lying around: this extension's page (titled “Your Journey Begins”) and Firefox's own `about:newtab` / `about:home`. It keeps the tab Sort was started from and any page in use: stopwatch started, text typed into a box, or Edit on. A page Firefox has not loaded is never in use.
+2. Closes duplicate tabs (canonical URL: lowercased, no trailing slash, `www.` stripped). A pinned tab wins a duplicate URL so the pin is kept. The new tab pages kept in step 1 are not deduplicated.
+3. Splits the remaining tabs into groups; the first match wins:
+   - Gmail (`mail.google.com`) and Calendar (`calendar.google.com`): main window, whatever the entertainment list says
    - AI chats: `claude.ai` and `chatgpt.com`
    - X: `x.com`
+   - Google Docs: `docs.google.com`, which is Docs, Sheets, Slides and Forms (Drive stays regular)
    - Entertainment: the live entertainment-domain list
-   - Regular: everything else
-3. Within each group, sort **pinned** and **unpinned** tabs separately by root hostname, then subdomain, then title. URL breaks remaining ties.
-4. Move AI chats, X, and entertainment into separate new windows. Entertainment stays minimized.
-5. Move regular pinned tabs into the current window’s pin strip, then unpinned tabs after them.
-6. Close leftover windows that no longer hold any managed tabs.
+   - Regular: everything else, main window
+4. Within each group, sorts **pinned** and **unpinned** tabs separately by root hostname, then subdomain, then title, so a site's tabs sit next to each other. URL breaks remaining ties. Hostless tabs (new tab pages, `about:`, `file:`) go last.
+5. Moves AI chats, X, Google Docs and entertainment into separate new windows. Entertainment is minimized.
+6. Arranges the main window: every Gmail tab, then every Calendar tab, all pinned, in URL order (account `/u/0` first); then the other pinned tabs; then the unpinned tabs. Tabs already in place are not moved.
+7. Closes leftover windows that no longer hold any managed tabs, then focuses the main window again (each new window takes focus as it opens).
 
-The page button and toolbar button both load the live entertainment list and perform the same four-way grouping.
+Both buttons load the live entertainment list and sort the same way.
+
+Decided 2026-11-02:
+
+- Gmail is the first tab of the main window, pinned, and Calendar the second. Calendar is pinned too: Firefox keeps every pinned tab left of every unpinned one, so an unpinned Calendar would stop being second as soon as anything else was pinned. Extra Gmail and Calendar tabs are pinned with them so each kind stays together.
+- Sort only arranges tabs. It does not open Gmail or Calendar when none is open.
+- Google Docs get their own window, not minimized.
+- **Not built: a tab-age marker** (“6d” in front of the title of a tab unused for 2 or more days). Firefox gives extensions no way to set a tab's title (`tabs.update` has no `title`). The only route is a script in every page rewriting `document.title`, which needs permission to read and change every website, cannot reach unloaded tabs (most days-old tabs, and every tab after a restart until it is clicked) without reloading them, fights sites that retitle themselves (Gmail, Claude), leaks the prefix into history and bookmark titles, and cannot run on `about:`, addons.mozilla.org or PDF tabs. The age itself is also unreliable while Sort works as above: Firefox's `lastAccessed` survives moves of unloaded tabs but resets to “now” when Sort moves a loaded tab to another window or opens a group window with it (`tests/sort-tabs/run.py` measures this), and Firefox exposes no tab creation time. A workable version would list idle tabs and their ages on the new tab page instead of in titles, once Sort stops moving tabs that are already in the right window.
 
 ### GitHub Activity
 
@@ -163,6 +173,10 @@ Needs `web-ext` (`npm install -g web-ext`) and `amo-credentials.local` — the s
 
 AMO requires a strictly increasing `manifest.json` version on every upload.
 
+On Linux there is no `pwsh`: `python3 tools/package.py --stage DIR` copies exactly the shipped files for `web-ext sign` (full procedure: `.cursor/rules/session-commands.mdc`).
+
+`dist/` holds only the current version's builds; `tools/package.py` and `build-and-sign.ps1` delete older ones, since git rebuilds them. An old archive holding a file git does not track (v1.0.17 bundled a personal config) is kept and reported instead.
+
 ---
 
 ## Development
@@ -182,12 +196,21 @@ meh-tabs/
 ├── dist/                     Signed XPIs
 ├── build-and-sign.ps1
 ├── tools/                    Packaging
+├── tests/sort-tabs/          Headless Firefox test of Sort
 ├── docs/page-date-overlay.md
 ├── page-date-overlay/        Second extension
 └── chrome-extension/         Placeholder only — not a working Chrome port
 ```
 
 Reload a temporary add-on from `about:debugging` after edits. Keep CSP-safe: no inline event handlers, no remote scripts, prefer `createElement` / `textContent` over `innerHTML`.
+
+Test Sort after changing it:
+
+```
+python3 tests/sort-tabs/run.py
+```
+
+It runs the real extension plus a test script in a throwaway headless Firefox, lays out tabs across windows (Gmail accounts, Calendar views, Docs, chats, duplicates, idle and in-use new tab pages, a Gmail compose popout), clicks Sort on a new tab page, sorts again the way the toolbar button does, and checks every window against the rules above. The test profile's proxy is a closed local port and its web tabs are never loaded, so nothing leaves the machine. `FIREFOX` picks the Firefox binary; `WEB_EXT` the web-ext command (default `npx --yes web-ext`).
 
 ---
 

@@ -21,9 +21,13 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// Only web pages have a host. moz-extension:, about: and file: tabs are
+// hostless, so they sort after websites and never match a domain list.
 function extractDomain(url) {
   try {
-    return new URL(url).hostname.replace(/^www\./, '');
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    return parsed.hostname.replace(/^www\./, '');
   } catch (error) {
     return null;
   }
@@ -67,8 +71,71 @@ function domainMatches(domain, candidate) {
   return domain === candidate || domain.endsWith('.' + candidate);
 }
 
+const GMAIL_DOMAINS = ['mail.google.com'];
+const CALENDAR_DOMAINS = ['calendar.google.com'];
 const AI_CHAT_DOMAINS = ['claude.ai', 'chatgpt.com'];
 const X_DOMAINS = ['x.com'];
+// Docs, Sheets, Slides and Forms all live here; Drive does not.
+const GOOGLE_DOCS_DOMAINS = ['docs.google.com'];
+
+// First match wins. Gmail and Calendar stay in the main window whatever the
+// entertainment list says, and the code-defined windows beat that list too.
+function classifyTab(tab, entertainmentDomains) {
+  const domain = extractDomain(tab.url);
+  const matches = candidates => !!domain && candidates.some(c => domainMatches(domain, c));
+  if (matches(GMAIL_DOMAINS)) return 'gmail';
+  if (matches(CALENDAR_DOMAINS)) return 'calendar';
+  if (matches(AI_CHAT_DOMAINS)) return 'aiChats';
+  if (matches(X_DOMAINS)) return 'x';
+  if (matches(GOOGLE_DOCS_DOMAINS)) return 'googleDocs';
+  if (matches(entertainmentDomains)) return 'entertainment';
+  return 'regular';
+}
+
+// This extension's new tab page ("Your Journey Begins") as Firefox reports
+// it, plus Firefox's own new tab and home pages, seen when the override is off.
+const NEW_TAB_PAGE_URLS = new Set([
+  browserAPI.runtime.getURL('newtab.html'),
+  'about:newtab',
+  'about:home',
+]);
+
+function isNewTabPage(url) {
+  return !!url && NEW_TAB_PAGE_URLS.has(url.split(/[?#]/)[0]);
+}
+
+// Ids of loaded new tab pages someone is using (window.newTabPage in
+// newtab.js). A page Firefox hasn't loaded has no view, so it counts as idle.
+function newTabPagesInUse() {
+  const inUse = new Set();
+  for (const view of browserAPI.extension.getViews({ type: 'tab' })) {
+    try {
+      const page = view.newTabPage;
+      if (page && page.tabId !== null && page.isInUse()) inUse.add(page.tabId);
+    } catch (error) {
+      console.error('Error checking whether a new tab page is in use:', error);
+    }
+  }
+  return inUse;
+}
+
+// Close the new tab pages lying around: every one except the tab Sort was
+// started from and any in use. Returns the tabs still open.
+async function closeIdleNewTabPages(tabs, startTabId) {
+  const inUse = newTabPagesInUse();
+  const closed = new Set();
+  for (const tab of tabs) {
+    if (!isNewTabPage(tab.url) || tab.id === startTabId || inUse.has(tab.id)) continue;
+    try {
+      await browserAPI.tabs.remove(tab.id);
+      closed.add(tab.id);
+    } catch (error) {
+      console.error(`Error closing new tab page ${tab.id}:`, error);
+    }
+  }
+  if (closed.size > 0) console.log(`Closed ${closed.size} idle new tab pages`);
+  return { open: tabs.filter(t => !closed.has(t.id)), closedCount: closed.size };
+}
 
 // Deduplicate tabs by URL - closes duplicates, keeps the first occurrence.
 // Pinned tabs win the URL slot so we don't close the pin and leave a copy.
@@ -104,10 +171,11 @@ async function deduplicateTabs(tabs) {
   return Array.from(seen.values());
 }
 
-// After the four-way group split, each window is ordered by registrable host
-// (google.com), then subdomain (docs / mail), then document title. URL is the
-// last tie-break so equal titles stay deterministic. Hostless tabs (about:,
-// file:) sort after real hosts.
+// After the group split, each window is ordered by registrable host
+// (google.com), then subdomain (docs / mail), then document title, which keeps
+// a site's tabs next to each other. URL is the last tie-break so equal titles
+// stay deterministic. Hostless tabs (new tab pages, about:, file:) sort after
+// real hosts.
 function tabSortComparator(a, b) {
   const hostA = extractDomain(a.url);
   const hostB = extractDomain(b.url);
@@ -122,6 +190,11 @@ function tabSortComparator(a, b) {
   const titleResult = compareText(a.title, b.title);
   if (titleResult !== 0) return titleResult;
   return compareText(a.url, b.url);
+}
+
+// Several Gmail or Calendar tabs order by URL, which puts account /u/0 first.
+function urlComparator(a, b) {
+  return compareText(a.url, b.url) || compareText(a.title, b.title);
 }
 
 // Firefox keeps pinned tabs at indices 0..n-1 and rejects moves that would
@@ -155,16 +228,6 @@ async function moveTabToWindow(tab, windowId, index) {
   await sleep(15);
 }
 
-async function moveTabsToWindow(tabs, windowId, startIndex) {
-  for (let i = 0; i < tabs.length; i++) {
-    try {
-      await moveTabToWindow(tabs[i], windowId, startIndex + i);
-    } catch (error) {
-      console.error(`Error moving tab ${tabs[i].id}:`, error);
-    }
-  }
-}
-
 // Seed a window with the first tab (pinned ones first), then move the rest.
 async function adoptTabsIntoNewWindow(tabs) {
   if (tabs.length === 0) return null;
@@ -190,6 +253,54 @@ async function adoptTabsIntoNewWindow(tabs) {
   return newWindow.id;
 }
 
+async function windowTabIds(windowId) {
+  const tabs = await browserAPI.tabs.query({ windowId });
+  return tabs.sort((a, b) => a.index - b.index).map(t => t.id);
+}
+
+// Gather the main window's tabs, pin Gmail and Calendar, then fill the final
+// order left to right. A tab only ever moves left into its slot, so a move
+// never disturbs the slots already filled, and tabs already in place stay put.
+async function arrangeMainWindow(windowId, pinnedOrder, unpinnedOrder) {
+  const ordered = [...pinnedOrder, ...unpinnedOrder];
+  for (const tab of ordered) {
+    if (tab.windowId === windowId) continue;
+    try {
+      await moveTabToWindow(tab, windowId, tab.pinned ? 0 : -1);
+    } catch (error) {
+      console.error(`Error moving tab ${tab.id} to the main window:`, error);
+    }
+  }
+  for (const tab of pinnedOrder) {
+    if (tab.pinned) continue;
+    try {
+      await browserAPI.tabs.update(tab.id, { pinned: true });
+    } catch (error) {
+      console.error(`Error pinning tab ${tab.id}:`, error);
+    }
+  }
+
+  let current = await windowTabIds(windowId);
+  const present = new Set(current);
+  const desired = ordered.map(t => t.id).filter(id => present.has(id));
+  for (let i = 0; i < desired.length; i++) {
+    if (current[i] === desired[i]) continue;
+    let moved = [];
+    try {
+      moved = await browserAPI.tabs.move([desired[i]], { index: i });
+    } catch (error) {
+      console.error(`Error moving tab ${desired[i]}:`, error);
+    }
+    // An empty result means Firefox refused the move (pin boundary).
+    if (moved.length === 0) {
+      current = await windowTabIds(windowId);
+      continue;
+    }
+    current.splice(current.indexOf(desired[i]), 1);
+    current.splice(i, 0, desired[i]);
+  }
+}
+
 // After a sort, other windows often keep a Firefox-created about:newtab (the
 // API almost never reports tabs.length === 0). Close those, but never a window
 // that still holds a tab we meant to keep (e.g. a pin we failed to move).
@@ -209,61 +320,67 @@ async function closeAbandonedWindows(managedTabIds, keepWindowIds) {
   }
 }
 
-// Consolidates all tabs into four groups. AI chat and X are code-defined groups
-// and take precedence over the user-maintained entertainment domain list.
-async function sortTabsAlphabetically(entertainmentDomains = []) {
+// Sorts every normal window's tabs. The window Sort was started from is the
+// main window: pinned Gmail, then pinned Calendar, then the other regular tabs.
+// AI chats, X, Google Docs and entertainment (minimized) get windows of their
+// own. Popup windows, such as a Gmail compose popout, are left alone.
+async function sortTabsAlphabetically(entertainmentDomains = [], startTab = null) {
   try {
-    const allTabs = await browserAPI.tabs.query({});
-    const tabs = await deduplicateTabs(allTabs);
-    const duplicatesClosed = allTabs.length - tabs.length;
+    const mainWindowId = startTab
+      ? startTab.windowId
+      : (await browserAPI.windows.getCurrent()).id;
+    const allTabs = await browserAPI.tabs.query({ windowType: 'normal' });
+    const { open, closedCount: newTabsClosed } =
+      await closeIdleNewTabPages(allTabs, startTab ? startTab.id : null);
+    // New tab pages still open are in use and share one URL; keep them all.
+    const newTabPages = open.filter(t => isNewTabPage(t.url));
+    const otherTabs = open.filter(t => !isNewTabPage(t.url));
+    const uniqueTabs = await deduplicateTabs(otherTabs);
+    const duplicatesClosed = otherTabs.length - uniqueTabs.length;
+    const tabs = [...uniqueTabs, ...newTabPages];
     const managedIds = new Set(tabs.map(t => t.id));
 
-    const matchesAnyDomain = (tab, domains) => {
-      const domain = extractDomain(tab.url);
-      if (!domain) return false;
-      return domains.some(candidate => domainMatches(domain, candidate));
-    };
-
     const groupedTabs = {
+      gmail: [],
+      calendar: [],
       aiChats: [],
       x: [],
+      googleDocs: [],
       entertainment: [],
       regular: [],
     };
     for (const tab of tabs) {
-      if (matchesAnyDomain(tab, AI_CHAT_DOMAINS)) {
-        groupedTabs.aiChats.push(tab);
-      } else if (matchesAnyDomain(tab, X_DOMAINS)) {
-        groupedTabs.x.push(tab);
-      } else if (matchesAnyDomain(tab, entertainmentDomains)) {
-        groupedTabs.entertainment.push(tab);
-      } else {
-        groupedTabs.regular.push(tab);
-      }
+      groupedTabs[classifyTab(tab, entertainmentDomains)].push(tab);
     }
 
+    const gmail = [...groupedTabs.gmail].sort(urlComparator);
+    const calendar = [...groupedTabs.calendar].sort(urlComparator);
     const regular = splitPinned(groupedTabs.regular);
     const entertainment = splitPinned(groupedTabs.entertainment);
     const aiChats = splitPinned(groupedTabs.aiChats);
     const x = splitPinned(groupedTabs.x);
+    const googleDocs = splitPinned(groupedTabs.googleDocs);
+
+    const mainPinned = [...gmail, ...calendar, ...regular.pinned];
+    const mainTabs = [...mainPinned, ...regular.unpinned];
 
     console.log(
-      `Sorting: ${regular.ordered.length} regular, ` +
+      `Sorting: ${gmail.length} Gmail, ${calendar.length} Calendar, ` +
+      `${regular.ordered.length} regular, ` +
       `${entertainment.ordered.length} entertainment, ` +
-      `${aiChats.ordered.length} AI chat, ${x.ordered.length} X tabs`
+      `${aiChats.ordered.length} AI chat, ${x.ordered.length} X, ` +
+      `${googleDocs.ordered.length} Google Docs tabs`
     );
 
-    const currentWindow = await browserAPI.windows.getCurrent();
-    const mainWindowId = currentWindow.id;
-
-    // Park one regular tab in the main window before extracting the other groups.
-    const regularInMain = regular.ordered.some(t => t.windowId === mainWindowId);
-    if (!regularInMain && regular.ordered.length > 0) {
-      const park = regular.ordered[0];
+    // Park one main-window tab there before extracting the other groups, so
+    // emptying the window can't close it.
+    if (mainTabs.length > 0 && !mainTabs.some(t => t.windowId === mainWindowId)) {
+      const park = mainTabs[0];
       try {
         await moveTabToWindow(park, mainWindowId, park.pinned ? 0 : -1);
+        park.windowId = mainWindowId;
       } catch (error) {
-        console.error('Error parking a regular tab in the main window:', error);
+        console.error('Error parking a tab in the main window:', error);
       }
     }
 
@@ -288,23 +405,39 @@ async function sortTabsAlphabetically(entertainmentDomains = []) {
       xWindowId = await adoptTabsIntoNewWindow(x.ordered);
     }
 
-    await moveTabsToWindow(regular.pinned, mainWindowId, 0);
-    await moveTabsToWindow(regular.unpinned, mainWindowId, regular.pinned.length);
+    let googleDocsWindowId = null;
+    if (googleDocs.ordered.length > 0) {
+      googleDocsWindowId = await adoptTabsIntoNewWindow(googleDocs.ordered);
+    }
+
+    await arrangeMainWindow(mainWindowId, mainPinned, regular.unpinned);
 
     await closeAbandonedWindows(
       managedIds,
-      [mainWindowId, entertainmentWindowId, aiChatWindowId, xWindowId]
+      [mainWindowId, entertainmentWindowId, aiChatWindowId, xWindowId, googleDocsWindowId]
     );
 
-    console.log(`Sorting complete! ${duplicatesClosed} duplicates closed.`);
+    // Each new window took focus as it opened; hand it back.
+    try {
+      await browserAPI.windows.update(mainWindowId, { focused: true });
+    } catch (error) {
+      console.error('Error focusing the main window:', error);
+    }
+
+    console.log(
+      `Sorting complete! ${duplicatesClosed} duplicates and ` +
+      `${newTabsClosed} new tab pages closed.`
+    );
     return {
       success: true,
       tabCount: tabs.length,
       duplicatesClosed: duplicatesClosed,
-      regularCount: regular.ordered.length,
+      newTabsClosed: newTabsClosed,
+      regularCount: mainTabs.length,
       entertainmentCount: entertainment.ordered.length,
       aiChatCount: aiChats.ordered.length,
-      xCount: x.ordered.length
+      xCount: x.ordered.length,
+      googleDocsCount: googleDocs.ordered.length
     };
 
   } catch (error) {
@@ -419,7 +552,7 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('Sort tabs action requested with entertainment domains:', request.entertainmentDomains);
     
     // Call the sort function and send response back
-    sortTabsAlphabetically(request.entertainmentDomains || []).then(result => {
+    sortTabsAlphabetically(request.entertainmentDomains || [], sender.tab || null).then(result => {
       console.log('Sending result back:', result);
       sendResponse(result);
     }).catch(error => {
@@ -441,7 +574,7 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 if (browserAPI.browserAction && browserAPI.browserAction.onClicked) {
-  browserAPI.browserAction.onClicked.addListener(async () => {
+  browserAPI.browserAction.onClicked.addListener(async (tab) => {
     console.log('Toolbar button clicked');
     try {
       const response = await fetch(
@@ -455,7 +588,7 @@ if (browserAPI.browserAction && browserAPI.browserAction.onClicked) {
       if (!Array.isArray(config.entertainmentDomains)) {
         throw new Error('newtab-config.json missing entertainmentDomains');
       }
-      const result = await sortTabsAlphabetically(config.entertainmentDomains);
+      const result = await sortTabsAlphabetically(config.entertainmentDomains, tab);
       if (!result.success) {
         throw new Error(result.error);
       }

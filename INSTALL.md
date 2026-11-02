@@ -147,7 +147,7 @@ Your custom new tab extension includes:
 - ✅ **Todo List** - Local todo management with drag-and-drop, export/import backup functionality
 - ✅ **Time Display** - Real-time clock and date in 24-hour format
 - ✅ **Stopwatch** - Built-in timing functionality with pause/resume
-- ✅ **Smart Tab Sorting** - Splits regular, entertainment, AI-chat, and X tabs into windows and sorts each group by root hostname, then subdomain, then title
+- ✅ **Smart Tab Sorting** - Pins Gmail then Calendar at the front of the main window, gives AI chats, X, Google Docs and entertainment their own windows, closes idle new tab pages, and sorts each group by root hostname, then subdomain, then title
 - ✅ **Google Search** - Quick search integration
 - ✅ **Local Storage** - All data stored locally (localStorage)
 - ✅ **Dual Configuration** - Supports both `links.json` (default) and `personal-config.json` (preferred)
@@ -170,8 +170,9 @@ Your custom new tab extension includes:
 ### Tab Sorting Not Working
 - Verify the extension has "tabs" permission in `manifest.json`
 - Check that the background script is loaded properly
-- The page button creates separate windows for AI chats (`claude.ai`, `chatgpt.com`), X (`x.com`), configured entertainment domains, and all other tabs.
+- Sort creates separate windows for AI chats (`claude.ai`, `chatgpt.com`), X (`x.com`), Google Docs (`docs.google.com`) and configured entertainment domains; Gmail, Calendar and all other tabs go to the window Sort was started from.
 - Pinned and unpinned tabs are sorted separately by root hostname, then subdomain, then title inside each group.
+- `python3 tests/sort-tabs/run.py` checks Sort in a throwaway headless Firefox.
 
 ### Todo List Not Saving
 - Ensure localStorage is enabled in Firefox
@@ -196,7 +197,7 @@ meh-tabs/
 ├── newtab.html               # New tab page
 ├── newtab.js                 # Core functionality (ConfigManager, Stopwatch, etc.)
 ├── todo.js                   # Todo list
-├── background.js             # Four-way tab grouping, title sort, GitHub fetch
+├── background.js             # Tab sort (Gmail/Calendar pins, group windows), GitHub fetch
 ├── styles.css                # Custom styles
 ├── bootstrap.min.css         # Bootstrap 5 CSS (local)
 ├── bootstrap.bundle.min.js   # Bootstrap 5 JS (local, required by AMO)
@@ -280,16 +281,19 @@ All icons use simple Unicode emojis - no external icon libraries needed!
 
 ### Tab Sorting
 
-The page button creates four groups:
+Sort (page or toolbar button) makes these groups, first match wins:
 
-1. AI chats: `claude.ai` and `chatgpt.com`
-2. X: `x.com`
-3. Entertainment: domains from the Caddy-served config
-4. Regular: everything else
+1. Gmail and Calendar: pinned at the front of the main window, Gmail first
+2. AI chats: `claude.ai` and `chatgpt.com`
+3. X: `x.com`
+4. Google Docs: `docs.google.com`
+5. Entertainment: domains from the Caddy-served config
+6. Regular: everything else, in the main window
 
-AI and X take precedence over entertainment. Each group sorts pinned and
-unpinned tabs separately by root hostname, then subdomain, then title,
-with URL as the last tie-breaker.
+It also closes idle new tab pages. Each group sorts pinned and unpinned tabs
+separately by root hostname, then subdomain, then title, with URL as the last
+tie-breaker. The full rules and their reasons are in
+[readme.md](readme.md#tab-management).
 
 ### Styling
 Modify `styles.css` to customize the appearance of your new tab page.

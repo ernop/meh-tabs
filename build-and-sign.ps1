@@ -196,7 +196,7 @@ if (-not (Get-Command "web-ext" -ErrorAction SilentlyContinue)) {
 Write-Host "`nSigning extension (unlisted)..." -ForegroundColor Cyan
 Push-Location $ExtensionDir
 try {
-    web-ext sign --channel=unlisted --artifacts-dir="$DistDir" --api-key="$apiKey" --api-secret="$apiSecret" --ignore-files="amo-credentials.local" --ignore-files="dist" --ignore-files="*.md" --ignore-files="*.ps1"
+    web-ext sign --channel=unlisted --artifacts-dir="$DistDir" --api-key="$apiKey" --api-secret="$apiSecret" --ignore-files="amo-credentials.local" --ignore-files="dist" --ignore-files="tests" --ignore-files="*.md" --ignore-files="*.ps1"
     
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Signing failed!" -ForegroundColor Red
@@ -230,6 +230,9 @@ if ($embeddedManifest.version -ne $version) {
     Write-Host "Fix: ensure web-ext signed the current code/version, then re-run." -ForegroundColor Yellow
     exit 1
 }
+
+# dist\ keeps only this version's builds; git rebuilds older ones.
+python (Join-Path $ExtensionDir "tools\package.py") --prune
 
 # Generate updates.json
 Write-UpdatesJson -Version $version -XpiFileName $xpiFile.Name

@@ -906,6 +906,9 @@ function initializeTabSorting() {
         if (response.duplicatesClosed > 0) {
           parts.push(`${response.duplicatesClosed} dupes closed`);
         }
+        if (response.newTabsClosed > 0) {
+          parts.push(`${response.newTabsClosed} new tab pages closed`);
+        }
         if (response.entertainmentCount > 0) {
           parts.push(`${response.entertainmentCount} entertainment`);
         }
@@ -915,12 +918,17 @@ function initializeTabSorting() {
         if (response.xCount > 0) {
           parts.push(`${response.xCount} X`);
         }
+        if (response.googleDocsCount > 0) {
+          parts.push(`${response.googleDocsCount} Docs`);
+        }
         
         console.log(
-          `Sorted: ${response.regularCount} regular, ` +
+          `Sorted: ${response.regularCount} main window, ` +
           `${response.entertainmentCount} entertainment, ` +
           `${response.aiChatCount} AI chats, ${response.xCount} X, ` +
-          `${response.duplicatesClosed} dupes closed`
+          `${response.googleDocsCount} Docs, ` +
+          `${response.duplicatesClosed} dupes closed, ` +
+          `${response.newTabsClosed} new tab pages closed`
         );
         sortButton.textContent = parts.length > 0 
           ? `Sorted! ${parts.join(', ')}`
@@ -1157,6 +1165,24 @@ class EntertainmentDomainManager {
 
 // Global entertainment domain manager instance
 let entertainmentDomainManager;
+let stopwatch;
+
+// background.js reads this through extension.getViews(): Sort closes idle new
+// tab pages but keeps one with a started stopwatch, typed text, or Edit on.
+window.newTabPage = {
+  tabId: null,
+  isInUse() {
+    if (stopwatch && (stopwatch.isRunning || stopwatch.elapsedTime > 0)) return true;
+    if (configManager && configManager.editMode) return true;
+    const fields = document.querySelectorAll(
+      'input:not([type]), input[type="text"], input[type="search"], textarea'
+    );
+    return Array.from(fields).some(field => field.value.trim() !== '');
+  },
+};
+browser.tabs.getCurrent().then(tab => {
+  if (tab) window.newTabPage.tabId = tab.id;
+});
 
 // Initialize all components when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
@@ -1165,7 +1191,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setInterval(updateTime, 1000);
   loadAndRenderLinks();
   loadAndRenderGithub();
-  new Stopwatch();
+  stopwatch = new Stopwatch();
   initializeTabSorting();
   entertainmentDomainManager = new EntertainmentDomainManager();
 });

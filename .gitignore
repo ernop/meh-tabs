@@ -9,6 +9,9 @@ chrome-extension/personal-config.json
 # Node modules if using npm
 node_modules/
 
+# Python bytecode (tests/sort-tabs/run.py imports tools/package.py)
+__pycache__/
+
 # OS generated files
 .DS_Store
 .DS_Store?

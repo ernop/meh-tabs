@@ -7,7 +7,11 @@ Start here.
 Firefox-extensions monorepo. Two extensions:
 
 1. **Custom New Tab** (repo root) — new-tab replacement with links, todo,
-   stopwatch, and four-way tab grouping (regular, entertainment, AI chats, X).
+   stopwatch, and tab sorting: pinned Gmail then Calendar lead the main
+   window; AI chats, X, Google Docs and entertainment get their own windows;
+   idle new tab pages are closed. The rules and decisions (including the
+   tab-age marker that was not built) are in [readme.md](readme.md) under
+   "Tab management"; `python3 tests/sort-tabs/run.py` tests them.
 2. **Page Date Overlay** (`page-date-overlay/`) — content-script overlay that
    shows author / publication date on every page, with user-taught type rules.
    See [docs/page-date-overlay.md](docs/page-date-overlay.md).
